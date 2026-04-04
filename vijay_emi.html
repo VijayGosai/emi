@@ -587,22 +587,6 @@ function saveState() {
   if (window._fbSave) { if(window._setSyncStatus) window._setSyncStatus('saving'); window._fbSave(state); }
 }
 
-// Firebase async init
-(async () => {
-  if (!window._fbLoad) { renderAll(); return; }
-  if (window._setSyncStatus) window._setSyncStatus('loading');
-  const remote = await window._fbLoad();
-  if (remote) {
-    state = remote; window._appState = state;
-    localStorage.setItem('emi_v3', JSON.stringify(state));
-  } else {
-    // First run — push defaults to Firebase
-    if (window._fbSave) await window._fbSave(state);
-  }
-  renderAll();
-  if (window._fbListen) window._fbListen();
-})();
-
 // ══════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════
@@ -1028,8 +1012,28 @@ function clearHistory() {
   state.payHistory=[]; saveState(); renderSettings();
 }
 
-// ── INIT (Firebase async handles renderAll; this is fallback) ──
-if(sessionStorage.getItem('emi_auth')==='ok') renderAll();
+// ══════════════════════════════════════════════════════
+//  INIT — all functions defined above, safe to call now
+// ══════════════════════════════════════════════════════
+(async () => {
+  // Show cached data immediately so the screen isn't blank
+  if (sessionStorage.getItem('emi_auth') === 'ok') renderAll();
+
+  // Then load from Firebase and refresh
+  if (!window._fbLoad) return;
+  if (window._setSyncStatus) window._setSyncStatus('loading');
+  const remote = await window._fbLoad();
+  if (remote) {
+    state = remote;
+    window._appState = state;
+    localStorage.setItem('emi_v3', JSON.stringify(state));
+  } else {
+    // First ever run — push default data up to Firebase
+    if (window._fbSave) await window._fbSave(state);
+  }
+  if (sessionStorage.getItem('emi_auth') === 'ok') renderAll();
+  if (window._fbListen) window._fbListen();
+})();
 </script>
 </body>
 </html>
