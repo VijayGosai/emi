@@ -393,7 +393,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fm);min-height:100
       </div>
     </div>
     <table class="dtable">
-      <thead><tr><th>#</th><th>Lender</th><th>EMI</th><th>Rate%</th><th>Total</th><th>Remaining</th><th>Progress</th><th>Priority</th><th style="min-width:150px">Payment</th></tr></thead>
+      <thead><tr><th>#</th><th>Lender</th><th>EMI</th><th>Rate%</th><th>Due Date</th><th>Total</th><th>Remaining</th><th>Progress</th><th>Priority</th><th style="min-width:150px">Payment</th></tr></thead>
       <tbody id="loan-tbody"></tbody>
     </table>
     <div class="mcards" id="loan-cards"></div>
@@ -475,6 +475,35 @@ body{background:var(--bg);color:var(--text);font-family:var(--fm);min-height:100
 
 </div><!-- .main -->
 </div><!-- #app-wrap -->
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-drag"></div>
+    <h3>✏️ Edit Loan</h3>
+    <div class="modal-sub" id="edit-modal-sub">Update loan details</div>
+    <input type="hidden" id="e-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row"><label>Lender Name</label><input id="e-name" placeholder="e.g. HDFC"></div>
+      <div class="form-row"><label>EMI Amount ₹</label><input type="number" id="e-emi" placeholder="5000"></div>
+      <div class="form-row"><label>Interest Rate %</label><input type="number" id="e-rate" placeholder="12.5" step="0.1"></div>
+      <div class="form-row"><label>Due Date (day)</label><input type="number" id="e-date" placeholder="5" min="1" max="31"></div>
+      <div class="form-row"><label>Total EMIs</label><input type="number" id="e-total" placeholder="24"></div>
+      <div class="form-row"><label>Paid EMIs</label><input type="number" id="e-paid" placeholder="0" min="0"></div>
+      <div class="form-row"><label>Priority</label>
+        <select id="e-priority">
+          <option value="1">High</option>
+          <option value="2">Medium</option>
+          <option value="3">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditLoan()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
 
 <!-- PAY MODAL -->
 <div class="modal-overlay" id="pay-modal">
@@ -690,7 +719,7 @@ function renderDashboard() {
 
   // Desktop table
   let rows='';
-  [...loans].sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name)).forEach((loan,i)=>{
+  [...loans].sort((a,b)=>a.date-b.date||a.name.localeCompare(b.name)).forEach((loan,i)=>{
     const paid=getPaidCount(loan), rem=getRemaining(loan), closed=isClosed(loan);
     const paidNow=isPaid(loan,m), naMonth=isNA(loan,m)||isMonthNA(loan,m);
     rows += `<tr class="${closed?'closed':''}">
@@ -700,6 +729,7 @@ function renderDashboard() {
         ${loan.rate>0?`<div style="font-size:10px;color:var(--text3)">${loan.rate}%</div>`:''}</div></div></td>
       <td><span class="amt">${fmt(loan.emi)}</span></td>
       <td style="color:var(--text2)">${loan.rate||'—'}</td>
+      <td style="color:var(--accent);font-weight:600">${loan.date ? loan.date+'<span style="font-size:10px;color:var(--text3)">th</span>' : '—'}</td>
       <td style="color:var(--text2)">${loan.totalEmi}</td>
       <td style="color:${rem<=3&&!closed?'var(--accent)':'var(--text2)'};font-weight:${rem<=3?'600':'400'}">${rem}</td>
       <td>${progressBar(paid,loan.totalEmi)}</td>
@@ -711,11 +741,11 @@ function renderDashboard() {
       }</td>
     </tr>`;
   });
-  document.getElementById('loan-tbody').innerHTML = rows || `<tr><td colspan="9" class="empty">No loans.</td></tr>`;
+  document.getElementById('loan-tbody').innerHTML = rows || `<tr><td colspan="10" class="empty">No loans.</td></tr>`;
 
   // Mobile cards
   let cards='';
-  [...loans].sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name)).forEach(loan=>{
+  [...loans].sort((a,b)=>a.date-b.date||a.name.localeCompare(b.name)).forEach(loan=>{
     const paid=getPaidCount(loan), rem=getRemaining(loan), closed=isClosed(loan);
     const paidNow=isPaid(loan,m), naMonth=isNA(loan,m)||isMonthNA(loan,m);
     const pct=loan.totalEmi>0?Math.round((paid/loan.totalEmi)*100):0;
@@ -730,7 +760,7 @@ function renderDashboard() {
         <span>EMIs: <strong>${paid}/${loan.totalEmi}</strong></span>
         <span>Left: <strong style="color:${rem<=3?'var(--accent)':'var(--text)'}">${rem}</strong></span>
         ${loan.rate>0?`<span>Rate: <strong>${loan.rate}%</strong></span>`:''}
-        ${loan.date?`<span>Due: <strong>${loan.date}th</strong></span>`:''}
+        ${loan.date?`<span>Due: <strong style="color:var(--accent)">${loan.date}th</strong></span>`:''}
       </div>
       <div class="prog" style="margin-bottom:10px"><div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div><div class="prog-pct">${pct}%</div></div>
       <div class="mcard-action">
@@ -814,7 +844,7 @@ function renderAllLoans() {
   document.getElementById('loans-meta').textContent=`${loans.length} total`;
 
   let rows='', cards='';
-  [...loans].sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name)).forEach((loan,i)=>{
+  [...loans].sort((a,b)=>a.date-b.date||a.name.localeCompare(b.name)).forEach((loan,i)=>{
     const paid=getPaidCount(loan), rem=getRemaining(loan), closed2=isClosed(loan);
     const pct=loan.totalEmi>0?Math.round((paid/loan.totalEmi)*100):0;
     const col=pct>=80?'var(--accent2)':pct>=40?'var(--accent4)':'var(--accent)';
@@ -897,6 +927,7 @@ function renderSettings() {
       <div class="li-info"><div class="li-name">${loan.name}${closed?'<span class="tag-closed">DONE</span>':''}</div>
         <div class="li-meta">${loan.totalEmi} EMIs · ${getRemaining(loan)} left · ${loan.rate||0}%</div></div>
       <div class="li-emi">${fmt(loan.emi)}</div>
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="openEditModal(${loan.id})">✏️</button>
       <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="deleteLoan(${loan.id})">✕</button></div>`;
   }).join('') || '<div class="empty">No loans yet.</div>';
 
@@ -1006,6 +1037,62 @@ function deleteLoan(id) {
   state.loans=state.loans.filter(l=>l.id!==id);
   saveState(); renderAll();
 }
+
+function openEditModal(id) {
+  const loan = state.loans.find(l => l.id === id);
+  if (!loan) return;
+  document.getElementById('e-id').value       = loan.id;
+  document.getElementById('e-name').value     = loan.name;
+  document.getElementById('e-emi').value      = loan.emi;
+  document.getElementById('e-rate').value     = loan.rate || '';
+  document.getElementById('e-date').value     = loan.date || '';
+  document.getElementById('e-total').value    = loan.totalEmi;
+  document.getElementById('e-paid').value     = getPaidCount(loan);
+  document.getElementById('e-priority').value = loan.priority;
+  document.getElementById('edit-modal-sub').textContent = `Editing: ${loan.name}`;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+function saveEditLoan() {
+  const id    = parseInt(document.getElementById('e-id').value);
+  const name  = document.getElementById('e-name').value.trim();
+  const emi   = parseFloat(document.getElementById('e-emi').value);
+  const rate  = parseFloat(document.getElementById('e-rate').value) || 0;
+  const date  = parseInt(document.getElementById('e-date').value) || 1;
+  const total    = parseInt(document.getElementById('e-total').value);
+  const newPaid  = parseInt(document.getElementById('e-paid').value) || 0;
+  const priority = parseInt(document.getElementById('e-priority').value);
+  if (!name || isNaN(emi) || isNaN(total)) { alert('Please fill Name, EMI and Total EMIs.'); return; }
+  const loan = state.loans.find(l => l.id === id);
+  if (!loan) return;
+  loan.name     = name;
+  loan.emi      = emi;
+  loan.rate     = rate;
+  loan.date     = date;
+  loan.totalEmi = total;
+  loan.priority = priority;
+
+  // Rebuild paidMonths to match the new paid count
+  // Keep 'na' months, then mark first newPaid non-na months as paid, rest as unpaid
+  const naMonths  = Object.entries(loan.paidMonths||{}).filter(([,v])=>v==='na').map(([k])=>k);
+  const newPaidMonths = {};
+  naMonths.forEach(mk => { newPaidMonths[mk] = 'na'; });
+  let counted = 0;
+  for (const mk of MONTHS) {
+    if (newPaidMonths[mk] === 'na') continue;
+    if (counted < newPaid) { newPaidMonths[mk] = true; counted++; }
+  }
+  loan.paidMonths = newPaidMonths;
+  saveState();
+  closeEditModal();
+  renderAll();
+}
+
+document.getElementById('edit-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeEditModal(); });
 
 function clearHistory() {
   if(!confirm('Clear payment history log?')) return;
