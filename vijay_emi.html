@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMI Tracker — Vijay</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script type="module">
+// ═══════════════════════════════════════════════
+//  FIREBASE CONFIG
+// ═══════════════════════════════════════════════
+import { initializeApp }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot }
+                                 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyB-6x1qsYicKmB18hs46zKaf_c2MAWa4Sw",
+  authDomain:        "iotdata-1a533.firebaseapp.com",
+  databaseURL:       "https://iotdata-1a533.firebaseio.com",
+  projectId:         "iotdata-1a533",
+  storageBucket:     "iotdata-1a533.firebasestorage.app",
+  messagingSenderId: "872026980596",
+  appId:             "1:872026980596:web:bb003f05e7d0cf6bdfdea1"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db    = getFirestore(fbApp);
+const DOC   = doc(db, "emi_tracker", "vijay");
+
+// Expose helpers to global scope so the rest of the (non-module) script can use them
+window._fbSave = async (data) => {
+  try {
+    await setDoc(DOC, { payload: JSON.stringify(data) });
+    setSyncStatus('saved');
+  } catch(e) {
+    console.error("Firebase save error", e);
+    setSyncStatus('error');
+  }
+};
+
+window._fbLoad = async () => {
+  try {
+    const snap = await getDoc(DOC);
+    if (snap.exists()) return JSON.parse(snap.data().payload);
+  } catch(e) { console.error("Firebase load error", e); }
+  return null;
+};
+
+// Real-time listener — updates UI on any device when data changes
+window._fbListen = () => {
+  onSnapshot(DOC, (snap) => {
+    if (!snap.exists()) return;
+    try {
+      const remote = JSON.parse(snap.data().payload);
+      // Only update if different from what we already have (avoid echo)
+      if (JSON.stringify(remote) !== JSON.stringify(window._state)) {
+        window._state = remote;
+        if (typeof renderAll === 'function') renderAll();
+        setSyncStatus('live');
+      }
+    } catch(e) {}
+  });
+};
+
+function setSyncStatus(s) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  if (s === 'saving') { el.textContent = '⏳ Saving…';  el.style.color = 'var(--text3)'; }
+  if (s === 'saved')  { el.textContent = '☁️ Synced';   el.style.color = 'var(--accent2)'; }
+  if (s === 'error')  { el.textContent = '⚠️ Offline';  el.style.color = 'var(--accent3)'; }
+  if (s === 'live')   { el.textContent = '🔴 Live';     el.style.color = 'var(--accent2)'; }
+  if (s === 'loading'){ el.textContent = '⏳ Loading…'; el.style.color = 'var(--text3)'; }
+}
+window._setSyncStatus = setSyncStatus;
+</script>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --surface: #13151c;
+    --surface2: #1a1d28;
+    --border: #252836;
+    --accent: #f0c040;
+    --accent2: #4af0a0;
+    --accent3: #f06060;
+    --accent4: #60a0f0;
+    --text: #e8eaf0;
+    --text2: #8890a8;
+    --text3: #555d75;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; overflow-x: hidden; }
+
+  /* NAV */
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); background: rgba(10,11,15,0.97); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); }
+  .nav-logo { font-family: var(--font-head); font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--accent); }
+  .nav-logo span { color: var(--text2); font-weight: 400; font-size: 13px; margin-left: 7px; }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab { padding: 7px 14px; border-radius: 8px; font-family: var(--font-mono); font-size: 13px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; color: var(--text2); background: transparent; -webkit-tap-highlight-color: transparent; }
+  .nav-tab.active { color: var(--accent); border-color: var(--accent); background: var(--surface2); }
+  .nav-tab:hover:not(.active) { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+  /* BOTTOM NAV — mobile only */
+  .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: rgba(13,15,20,0.98); border-top: 1px solid var(--border); backdrop-filter: blur(16px); z-index: 100; }
+  .bottom-nav-inner { display: flex; justify-content: space-around; align-items: stretch; height: 60px; }
+  .bottom-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; border: none; background: transparent; color: var(--text3); font-family: var(--font-mono); font-size: 10px; transition: color 0.15s; padding: 6px 2px; -webkit-tap-highlight-color: transparent; }
+  .bottom-tab .bt-icon { font-size: 20px; line-height: 1; }
+  .bottom-tab.active { color: var(--accent); }
+
+  /* MAIN */
+  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* STATS */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 14px 14px 0 0; }
+  .stat-card.yellow::before { background: var(--accent); }
+  .stat-card.red::before    { background: var(--accent3); }
+  .stat-card.green::before  { background: var(--accent2); }
+  .stat-card.blue::before   { background: var(--accent4); }
+  .stat-card.purple::before { background: #b060f0; }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; }
+  .stat-value { font-family: var(--font-head); font-size: 24px; font-weight: 800; line-height: 1; margin-bottom: 3px; }
+  .stat-sub { font-size: 11px; color: var(--text2); }
+
+  /* MONTH BAR */
+  .month-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .month-label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .month-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+  .month-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text2); transition: all 0.15s; font-family: var(--font-mono); -webkit-tap-highlight-color: transparent; }
+  .month-pill.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+
+  /* TABLE WRAP */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 6px; }
+  .table-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; }
+  .table-meta { font-size: 12px; color: var(--text2); }
+
+  /* DESKTOP TABLE */
+  .desktop-table { width: 100%; border-collapse: collapse; }
+  .desktop-table thead th { background: var(--surface2); padding: 10px 14px; text-align: left; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .desktop-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .desktop-table tbody tr:last-child { border-bottom: none; }
+  .desktop-table tbody tr:hover { background: var(--surface2); }
+  .desktop-table tbody tr.closed { opacity: 0.45; }
+  .desktop-table tbody td { padding: 12px 14px; font-size: 13px; vertical-align: middle; }
+
+  /* MOBILE LOAN CARDS */
+  .mobile-loan-list { display: none; flex-direction: column; gap: 10px; padding: 12px; }
+  .loan-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 14px 14px 18px; position: relative; overflow: hidden; }
+  .loan-card.closed { opacity: 0.5; }
+  .loan-card-strip { position: absolute; top: 0; left: 0; bottom: 0; width: 4px; border-radius: 14px 0 0 14px; }
+  .loan-card-strip.prio-1 { background: var(--accent); }
+  .loan-card-strip.prio-2 { background: var(--accent4); }
+  .loan-card-strip.prio-3 { background: var(--text3); }
+  .loan-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+  .loan-card-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .loan-card-emi { font-family: var(--font-head); font-size: 18px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+  .loan-card-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .loan-card-meta-item { font-size: 11px; color: var(--text2); }
+  .loan-card-meta-item strong { color: var(--text); }
+  .loan-card-progress { margin-bottom: 12px; }
+  .loan-card-action { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+
+  /* BADGE */
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge-yellow { background: rgba(240,192,64,0.15); color: var(--accent); }
+  .badge-green  { background: rgba(74,240,160,0.15); color: var(--accent2); }
+  .badge-red    { background: rgba(240,96,96,0.15);  color: var(--accent3); }
+  .badge-blue   { background: rgba(96,160,240,0.15); color: var(--accent4); }
+  .badge-purple { background: rgba(176,96,240,0.15); color: #b060f0; }
+
+  /* PROGRESS */
+  .prog-wrap { display: flex; align-items: center; gap: 8px; }
+  .prog-bar  { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .prog-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .prog-pct  { font-size: 12px; color: var(--text2); min-width: 32px; text-align: right; }
+
+  /* PAY BTN */
+  .pay-btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border-radius: 8px; font-family: var(--font-mono); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid rgba(74,240,160,0.35); background: rgba(74,240,160,0.1); color: var(--accent2); transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
+  .pay-btn:active { background: rgba(74,240,160,0.25); }
+  .undo-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text3); transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
+  .undo-btn:active { color: var(--accent3); }
+
+  /* MODAL — bottom sheet on all sizes */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 20px 20px 0 0; padding: 20px 22px 36px; width: 100%; max-width: 500px; animation: slideUp 0.22s ease; }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-drag { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+  .modal h3 { font-family: var(--font-head); font-size: 17px; font-weight: 800; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; color: var(--text2); margin-bottom: 18px; }
+  .modal-amount { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-amount-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+  .modal-amount-val { font-family: var(--font-head); font-size: 24px; font-weight: 800; color: var(--accent2); }
+  .modal-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .modal-month-btn { padding: 10px 4px; border-radius: 8px; font-size: 12px; font-family: var(--font-mono); cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); transition: all 0.12s; text-align: center; -webkit-tap-highlight-color: transparent; }
+  .modal-month-btn.selected { background: var(--accent2); border-color: var(--accent2); color: #000; font-weight: 600; }
+  .modal-month-btn.already-paid { background: rgba(74,240,160,0.07); border-color: rgba(74,240,160,0.15); color: rgba(74,240,160,0.35); cursor: not-allowed; position: relative; }
+  .modal-month-btn.already-paid::after { content: '✓'; position: absolute; top: 2px; right: 4px; font-size: 9px; color: var(--accent2); }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions .btn { flex: 1; justify-content: center; padding: 13px; }
+
+  /* PAYMENT HISTORY */
+  .pay-history-wrap { max-height: 260px; overflow-y: auto; }
+  .pay-history-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .pay-history-item:last-child { border-bottom: none; }
+  .pay-history-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+  .pay-history-name { font-weight: 500; flex: 1; }
+  .pay-history-month { color: var(--text2); }
+  .pay-history-amt { font-family: var(--font-head); font-weight: 700; color: var(--accent); }
+
+  /* CLOSING GRID */
+  .closing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .closing-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .closing-month { font-size: 10px; color: var(--text3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 1px; }
+  .closing-count { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--accent2); }
+  .closing-save { font-size: 12px; color: var(--text2); }
+  .closing-save strong { color: var(--accent); }
+
+  /* SETTINGS */
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .settings-card h3 { font-family: var(--font-head); font-size: 15px; font-weight: 700; margin-bottom: 18px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .form-row label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+  .form-row input, .form-row select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: var(--font-mono); font-size: 14px; outline: none; transition: border-color 0.15s; width: 100%; }
+  .form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+  .form-row select option { background: var(--surface2); }
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .loan-list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+  .loan-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+  .loan-item-info { flex: 1; min-width: 0; }
+  .loan-item-name { font-weight: 500; font-size: 13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loan-item-meta { font-size: 11px; color: var(--text2); }
+  .loan-item-emi { font-family: var(--font-head); font-weight: 700; font-size: 14px; color: var(--accent); white-space: nowrap; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px; border-radius: 9px; font-family: var(--font-mono); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:active { background: #ffd050; }
+  .btn-danger { background: rgba(240,96,96,0.15); color: var(--accent3); border: 1px solid rgba(240,96,96,0.3); }
+  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+
+  /* CHARTS */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .chart-card-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; margin-bottom: 14px; }
+  .chart-inner { display: flex; align-items: center; gap: 16px; }
+  .chart-canvas-wrap { flex-shrink: 0; position: relative; width: 140px; height: 140px; }
+  .chart-canvas-wrap canvas { display: block; }
+  .chart-center-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .chart-center-val { font-family: var(--font-head); font-size: 16px; font-weight: 800; line-height: 1; }
+  .chart-center-sub { font-size: 9px; color: var(--text3); margin-top: 2px; }
+  .chart-legend { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; max-height: 140px; overflow-y: auto; }
+  .chart-legend-item { display: flex; align-items: center; gap: 7px; font-size: 11px; min-width: 0; }
+  .chart-legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .chart-legend-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text2); }
+  .chart-legend-val { font-weight: 500; color: var(--text); white-space: nowrap; font-family: var(--font-head); font-size: 11px; }
+  .chart-legend-pct { color: var(--text3); font-size: 10px; min-width: 28px; text-align: right; }
+
+  /* MISC */
+  .section-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; margin-bottom: 16px; }
+  .tag-closed { font-size: 10px; color: var(--accent2); background: rgba(74,240,160,0.1); border: 1px solid rgba(74,240,160,0.2); padding: 2px 7px; border-radius: 20px; margin-left: 6px; }
+  .empty { text-align: center; padding: 30px; color: var(--text3); font-size: 13px; }
+  .prio { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .prio-1 { background: var(--accent); }
+  .prio-2 { background: var(--accent4); }
+  .prio-3 { background: var(--text3); }
+  .amount { font-family: var(--font-head); font-weight: 700; }
+  .priority-legend { display: flex; gap: 14px; align-items: center; }
+  .priority-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  @keyframes fadeSlide { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .page.active { animation: fadeSlide 0.18s ease; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* LOGIN */
+  #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 32px 26px; width: 380px; max-width: 100%; animation: fadeSlide 0.25s ease; }
+  .login-logo { font-family: var(--font-head); font-size: 26px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+  .login-logo span { color: var(--text2); font-weight: 400; font-size: 13px; margin-left: 6px; }
+  .login-sub { font-size: 12px; color: var(--text3); margin-bottom: 26px; }
+  .login-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .login-field label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+  .login-field input { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px; color: var(--text); font-family: var(--font-mono); font-size: 15px; outline: none; transition: border-color 0.15s; width: 100%; -webkit-appearance: none; }
+  .login-field input:focus { border-color: var(--accent); }
+  .login-btn { width: 100%; padding: 14px; border-radius: 10px; background: var(--accent); color: #000; font-family: var(--font-head); font-size: 15px; font-weight: 700; border: none; cursor: pointer; margin-top: 6px; -webkit-tap-highlight-color: transparent; }
+  .login-btn:active { background: #ffd050; }
+  .login-error { color: var(--accent3); font-size: 12px; margin-top: 10px; text-align: center; min-height: 16px; }
+  .app-wrap { display: none; }
+  .app-wrap.visible { display: block; }
+
+  /* ══════════════════════════════
+     MOBILE ≤ 640px
+  ══════════════════════════════ */
+  @media (max-width: 640px) {
+    .nav { padding: 12px 16px; }
+    .nav-tabs { display: none; }
+    .bottom-nav { display: block; }
+    .main { padding: 14px 12px 78px; }
+
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 12px; }
+    .stat-value { font-size: 19px; }
+    .stat-label { font-size: 9px; }
+
+    .charts-row { grid-template-columns: 1fr; gap: 10px; margin-bottom: 14px; }
+    .chart-canvas-wrap { width: 110px; height: 110px; }
+    .chart-center-val { font-size: 13px; }
+    .chart-legend { max-height: 110px; }
+
+    .desktop-table { display: none; }
+    .mobile-loan-list { display: flex; }
+
+    .table-header { padding: 12px 14px; }
+    .priority-legend { display: none; }
+    .section-title { font-size: 17px; margin-bottom: 12px; }
+
+    .settings-grid { grid-template-columns: 1fr; gap: 12px; }
+
+    .closing-grid { grid-template-columns: 1fr; }
+    .month-bar { gap: 8px; }
+  }
+
+  /* TABLET 641–900px */
+  @media (min-width: 641px) and (max-width: 900px) {
+    .main { padding: 18px 18px; }
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .settings-grid { grid-template-columns: 1fr; }
+    .nav-tab { padding: 7px 11px; font-size: 12px; }
+    .desktop-table { display: none; }
+    .mobile-loan-list { display: flex; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">EMI<span>tracker</span></div>
+    <div class="login-sub">Personal finance dashboard — Sign in to continue</div>
+    <div class="login-field">
+      <label>Email / Username</label>
+      <input type="text" id="login-user" placeholder="Enter your email" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP (hidden until login) -->
+<div class="app-wrap" id="app-wrap">
+
+<nav class="nav">
+  <div class="nav-logo">EMI<span>tracker</span></div>
+  <div id="sync-status" style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">⏳ Loading…</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('dashboard',this)">Dashboard</button>
+    <button class="nav-tab" onclick="showPage('loans',this)">All Loans</button>
+    <button class="nav-tab" onclick="showPage('timeline',this)">Timeline</button>
+    <button class="nav-tab" onclick="showPage('settings',this)">Settings</button>
+    <button class="nav-tab" onclick="doLogout()" style="color:var(--accent3)">Logout</button>
+  </div>
+</nav>
+
+<!-- BOTTOM NAV (mobile) -->
+<div class="bottom-nav" id="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bottom-tab active" onclick="showPage('dashboard', this)"><span class="bt-icon">📊</span>Dashboard</button>
+    <button class="bottom-tab" onclick="showPage('loans', this)"><span class="bt-icon">📋</span>All Loans</button>
+    <button class="bottom-tab" onclick="showPage('timeline', this)"><span class="bt-icon">📅</span>Timeline</button>
+    <button class="bottom-tab" onclick="showPage('settings', this)"><span class="bt-icon">⚙️</span>Settings</button>
+    <button class="bottom-tab" onclick="doLogout()" style="color:var(--accent3)"><span class="bt-icon">🚪</span>Logout</button>
+  </div>
+</div>
+
+  <!-- DASHBOARD PAGE -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-row" id="stats-row"></div>
+
+    <!-- CHARTS ROW -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-card-title">EMI Share by Lender</div>
+        <div class="chart-inner">
+          <div class="chart-canvas-wrap">
+            <canvas id="chart-emi-share" width="160" height="160"></canvas>
+            <div class="chart-center-label">
+              <div class="chart-center-val" id="chart-emi-total">—</div>
+              <div class="chart-center-sub">total / mo</div>
+            </div>
+          </div>
+          <div class="chart-legend" id="legend-emi-share"></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Paid vs Pending — <span id="chart-month-label" style="color:var(--accent)">This Month</span></div>
+        <div class="chart-inner">
+          <div class="chart-canvas-wrap">
+            <canvas id="chart-paid-pending" width="160" height="160"></canvas>
+            <div class="chart-center-label">
+              <div class="chart-center-val" id="chart-paid-pct" style="color:var(--accent2)">0%</div>
+              <div class="chart-center-sub">paid</div>
+            </div>
+          </div>
+          <div class="chart-legend" id="legend-paid-pending"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="month-bar">
+      <span class="month-label">Mark EMIs paid for:</span>
+      <div class="month-pills" id="month-pills"></div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Monthly EMI List</div>
+          <div class="table-meta" id="table-meta"></div>
+        </div>
+        <div class="priority-legend">
+          <div class="priority-legend-item"><div class="prio prio-1"></div> High</div>
+          <div class="priority-legend-item"><div class="prio prio-2"></div> Medium</div>
+          <div class="priority-legend-item"><div class="prio prio-3"></div> Low</div>
+        </div>
+      </div>
+      <table class="desktop-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Lender</th>
+            <th>EMI Amount</th>
+            <th>Interest %</th>
+            <th>Total EMIs</th>
+            <th>Remaining</th>
+            <th>Progress</th>
+            <th>Priority</th>
+            <th style="min-width:160px;" id="th-month">Payment Action</th>
+          </tr>
+        </thead>
+        <tbody id="loan-tbody"></tbody>
+      </table>
+      <div class="mobile-loan-list" id="loan-cards"></div>
+    </div>
+  </div>
+
+  <!-- ALL LOANS PAGE -->
+  <div class="page" id="page-loans">
+    <div class="section-title">All Loans Overview</div>
+    <div class="stats-row" id="loans-stats"></div>
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="table-title">Complete Loan Details</div>
+        <div class="table-meta" id="loans-meta"></div>
+      </div>
+      <table class="desktop-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Lender</th>
+            <th>EMI</th>
+            <th>Rate %</th>
+            <th>Date</th>
+            <th>Total EMIs</th>
+            <th>Remaining</th>
+            <th>Paid</th>
+            <th>Progress</th>
+            <th>Priority</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="all-loans-tbody"></tbody>
+      </table>
+      <div class="mobile-loan-list" id="all-loans-cards"></div>
+    </div>
+  </div>
+
+  <!-- TIMELINE PAGE -->
+  <div class="page" id="page-timeline">
+    <div class="section-title">Closing Timeline</div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:24px;">Loans that will close each month — and how much you save.</p>
+    <div class="closing-grid" id="closing-grid"></div>
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="table-title">Month-by-Month EMI Load</div>
+        <div class="table-meta">Based on remaining EMIs from today</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Active Loans</th>
+            <th>Total EMI Load</th>
+            <th>Savings vs Now</th>
+            <th>Closing This Month</th>
+          </tr>
+        </thead>
+        <tbody id="timeline-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div class="page" id="page-settings">
+    <div class="section-title">Settings & Loan Management</div>
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h3>➕ Add New Loan</h3>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Lender Name</label>
+            <input type="text" id="s-name" placeholder="e.g. HDFC Bank">
+          </div>
+          <div class="form-row">
+            <label>EMI Amount (₹)</label>
+            <input type="number" id="s-emi" placeholder="5000">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Interest Rate %</label>
+            <input type="number" id="s-rate" placeholder="12.5" step="0.1">
+          </div>
+          <div class="form-row">
+            <label>Due Date (day of month)</label>
+            <input type="number" id="s-date" placeholder="5" min="1" max="31">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Total EMIs</label>
+            <input type="number" id="s-total" placeholder="24">
+          </div>
+          <div class="form-row">
+            <label>EMIs Already Paid</label>
+            <input type="number" id="s-paid" placeholder="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Priority</label>
+          <select id="s-priority">
+            <option value="1">High Priority</option>
+            <option value="2">Medium Priority</option>
+            <option value="3">Low Priority</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="addLoan()">➕ Add Loan</button>
+      </div>
+
+      <div class="settings-card">
+        <h3>📋 Manage Loans</h3>
+        <div class="loan-list" id="settings-loan-list"></div>
+      </div>
+    </div>
+
+    <!-- Payment History full-width card -->
+    <div class="settings-card" style="margin-top:24px">
+      <h3 style="justify-content:space-between;">
+        🧾 Payment History
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 12px;" onclick="clearHistory()">Clear All</button>
+      </h3>
+      <div class="pay-history-wrap" id="pay-history-list"></div>
+    </div>
+  </div>
+
+</div><!-- end .main -->
+</div><!-- end #app-wrap -->
+
+<!-- PAY MODAL -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal">
+    <h3 id="modal-title">Pay EMI</h3>
+    <div class="modal-sub" id="modal-sub">Select the month you are paying for</div>
+    <div class="modal-amount">
+      <div>
+        <div class="modal-amount-label">EMI Amount</div>
+        <div class="modal-amount-val" id="modal-emi-val">₹0</div>
+      </div>
+      <div style="text-align:right">
+        <div class="modal-amount-label">Remaining EMIs</div>
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--text2)" id="modal-rem-val">0</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Select Month</div>
+    <div class="modal-month-grid" id="modal-month-grid"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-confirm-btn" onclick="confirmPay()">✓ Confirm Payment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── AUTH ─────────────────────────────────────────────
+const VALID_USERS = [
+  { username: 'gosaivijay834@gmail.com', password: 'vijaydip' },
+  { username: 'vijaydip',                password: 'vijaydip' }
+];
+
+function checkSession() {
+  return sessionStorage.getItem('emi_auth') === 'ok';
+}
+
+function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const match = VALID_USERS.find(u => u.username === user && u.password === pass);
+  if (match) {
+    sessionStorage.setItem('emi_auth', 'ok');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-wrap').classList.add('visible');
+    // Firebase async load will call renderAll() automatically
+    // But show something immediately from localStorage
+    renderAll();
+  } else {
+    const err = document.getElementById('login-error');
+    err.textContent = '✕ Incorrect email or password. Try again.';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    setTimeout(() => { err.textContent = ''; }, 3000);
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('emi_auth');
+  document.getElementById('app-wrap').classList.remove('visible');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+// Auto-login if session active (same tab/browser session)
+if (checkSession()) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrap').classList.add('visible');
+}
+
+// ─── DATA ─────────────────────────────────────────────
+const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const DEFAULT_LOANS = [
+  { id:1,  name:'BOI',              emi:4500,   rate:9,     date:30, totalEmi:11, priority:1 },
+  { id:2,  name:'IDFC',             emi:3368,   rate:0,     date:3,  totalEmi:5,  priority:1 },
+  { id:3,  name:'MoneyView',        emi:4916,   rate:0,     date:5,  totalEmi:4,  priority:1 },
+  { id:4,  name:'Navi',             emi:3350,   rate:25.56, date:1,  totalEmi:11, priority:1 },
+  { id:5,  name:'KreditBee',        emi:15730,  rate:24,    date:5,  totalEmi:17, priority:1 },
+  { id:6,  name:'HDFC',             emi:20256,  rate:0,     date:7,  totalEmi:83, priority:2 },
+  { id:7,  name:'Axio',             emi:9280,   rate:0,     date:5,  totalEmi:5,  priority:1 },
+  { id:8,  name:'Amazon',           emi:10000,  rate:0,     date:3,  totalEmi:6,  priority:1 },
+  { id:9,  name:'Bajaj-AC',         emi:4500,   rate:0,     date:2,  totalEmi:16, priority:1 },
+  { id:10, name:'IDFC-papa',        emi:6500,   rate:24,    date:3,  totalEmi:20, priority:1 },
+  { id:11, name:'MoneyView-papa',   emi:5000,   rate:23,    date:5,  totalEmi:13, priority:1 },
+  { id:12, name:'Car',              emi:10000,  rate:13,    date:10, totalEmi:7,  priority:2 },
+  { id:13, name:'Car-Personal',     emi:11000,  rate:21.4,  date:10, totalEmi:8,  priority:2 },
+  { id:14, name:'Jijaji',           emi:12500,  rate:0,     date:5,  totalEmi:36, priority:2 },
+  { id:15, name:'Priyank (1)',      emi:2050,   rate:15,    date:8,  totalEmi:6,  priority:3 },
+  { id:16, name:'Priyank (2)',      emi:1000,   rate:15,    date:8,  totalEmi:12, priority:3 },
+  { id:17, name:'Bajaj Personal',   emi:3956,   rate:30,    date:2,  totalEmi:36, priority:1 },
+  { id:18, name:'IDFC Arti Phone',  emi:5773,   rate:0,     date:2,  totalEmi:6,  priority:1 },
+  { id:19, name:'HSBC Card',        emi:3751,   rate:13.99, date:1,  totalEmi:12, priority:1 },
+  { id:20, name:'Hype Loan',        emi:4874,   rate:0,     date:2,  totalEmi:4,  priority:1 },
+];
+
+function getDefaultState() {
+  const loans = DEFAULT_LOANS.map(l => ({
+    ...l,
+    paidMonths: { jan:true, feb:true, mar:true }
+  }));
+  [17,18,19,20].forEach(id => {
+    const l = loans.find(x => x.id === id);
+    if (l) delete l.paidMonths.jan;
+  });
+  return { loans, activeMonth: 'apr', nextId: 21, payHistory: [] };
+}
+
+// ─── FIREBASE SAVE / LOAD ─────────────────────────────
+// saveState: writes to Firestore + localStorage (offline fallback)
+function saveState() {
+  localStorage.setItem('emi_tracker_v2', JSON.stringify(state));
+  window._state = state; // keep reference for real-time listener
+  if (window._fbSave) {
+    if (window._setSyncStatus) window._setSyncStatus('saving');
+    window._fbSave(state);
+  }
+}
+
+// Initial state from localStorage while Firebase loads
+let state = (() => {
+  try {
+    const s = localStorage.getItem('emi_tracker_v2');
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return getDefaultState();
+})();
+window._state = state;
+
+// Load from Firebase on startup (overrides localStorage if cloud data exists)
+(async () => {
+  if (!window._fbLoad) { renderAll(); return; }
+  if (window._setSyncStatus) window._setSyncStatus('loading');
+  const remote = await window._fbLoad();
+  if (remote) {
+    state = remote;
+    window._state = state;
+    localStorage.setItem('emi_tracker_v2', JSON.stringify(state));
+  } else {
+    // First time — push default data to Firebase
+    await window._fbSave(state);
+  }
+  renderAll();
+  // Start real-time listener after initial load
+  if (window._fbListen) window._fbListen();
+})();
+
+// ─── HELPERS ──────────────────────────────────────────
+function fmt(n) {
+  return '₹' + Math.round(n).toLocaleString('en-IN');
+}
+
+function getPaidCount(loan) {
+  return Object.values(loan.paidMonths || {}).filter(Boolean).length;
+}
+
+function getRemaining(loan) {
+  return Math.max(0, loan.totalEmi - getPaidCount(loan));
+}
+
+function isClosed(loan) {
+  return getRemaining(loan) === 0;
+}
+
+function priorityBadge(p) {
+  if(p===1) return '<span class="badge badge-yellow">High</span>';
+  if(p===2) return '<span class="badge badge-blue">Medium</span>';
+  return '<span class="badge badge-purple" style="background:rgba(176,96,240,0.15);color:#b060f0;">Low</span>';
+}
+
+function progressBar(paid, total) {
+  const pct = total > 0 ? Math.round((paid/total)*100) : 0;
+  const color = pct >= 80 ? 'var(--accent2)' : pct >= 40 ? 'var(--accent4)' : 'var(--accent)';
+  return `<div class="prog-wrap">
+    <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+    <div class="prog-pct">${pct}%</div>
+  </div>`;
+}
+
+// ─── PAGE SWITCH ───────────────────────────────────────
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.bottom-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+  // Sync top nav
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(id === 'loans' ? 'all' : id)) t.classList.add('active');
+  });
+  renderAll();
+}
+
+// ─── RENDER ALL ───────────────────────────────────────
+function renderAll() {
+  renderDashboard();
+  renderAllLoans();
+  renderTimeline();
+  renderSettings();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────
+function renderDashboard() {
+  const loans = state.loans;
+  const activeM = state.activeMonth;
+  const activeLoans = loans.filter(l => !isClosed(l));
+  const closedLoans = loans.filter(l => isClosed(l));
+  const totalEMI = activeLoans.reduce((s,l) => s+l.emi, 0);
+  const paidThisMonth = activeLoans.filter(l => (l.paidMonths||{})[activeM]).reduce((s,l) => s+l.emi, 0);
+  const unpaidThisMonth = totalEMI - paidThisMonth;
+  const pendingCount = activeLoans.filter(l => !(l.paidMonths||{})[activeM]).length;
+
+  // Stats
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card yellow">
+      <div class="stat-label">Total Monthly EMI</div>
+      <div class="stat-value">${fmt(totalEMI)}</div>
+      <div class="stat-sub">${activeLoans.length} active loans</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Pending This Month</div>
+      <div class="stat-value" style="color:var(--accent3)">${fmt(unpaidThisMonth)}</div>
+      <div class="stat-sub">${pendingCount} EMIs to pay</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Paid This Month</div>
+      <div class="stat-value" style="color:var(--accent2)">${fmt(paidThisMonth)}</div>
+      <div class="stat-sub">${activeLoans.filter(l => (l.paidMonths||{})[activeM]).length} EMIs done</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Loans Closed</div>
+      <div class="stat-value" style="color:var(--accent4)">${closedLoans.length}</div>
+      <div class="stat-sub">of ${loans.length} total loans</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Pending Loans</div>
+      <div class="stat-value" style="color:#b060f0">${activeLoans.length}</div>
+      <div class="stat-sub">${pendingCount} unpaid this month</div>
+    </div>
+  `;
+
+  // Month pills
+  document.getElementById('month-pills').innerHTML = MONTHS.map((m, i) =>
+    `<button class="month-pill ${m === activeM ? 'active' : ''}" onclick="setMonth('${m}')">${MONTH_NAMES[i].slice(0,3)}</button>`
+  ).join('');
+
+  // Table header
+  document.getElementById('table-meta').textContent = `${pendingCount} pending · ${activeLoans.length - pendingCount} paid in ${MONTH_NAMES[MONTHS.indexOf(activeM)]}`;
+
+  // Table body
+  let rows = '';
+  [...loans].sort((a,b) => a.priority - b.priority || a.name.localeCompare(b.name))
+  .forEach((loan, i) => {
+    const paid = getPaidCount(loan);
+    const rem = getRemaining(loan);
+    const closed = isClosed(loan);
+    const paidNow = (loan.paidMonths||{})[activeM];
+    rows += `<tr class="${closed ? 'closed' : ''}">
+      <td style="color:var(--text3)">${i+1}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="prio prio-${loan.priority}"></div>
+          <div>
+            <div style="font-weight:500">${loan.name}${closed ? '<span class="tag-closed">CLOSED</span>':''}</div>
+            ${loan.rate > 0 ? `<div style="font-size:11px;color:var(--text3)">${loan.rate}% p.a.</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td><span class="amount">${fmt(loan.emi)}</span></td>
+      <td style="color:var(--text2)">${loan.rate || '—'}</td>
+      <td style="color:var(--text2)">${loan.totalEmi}</td>
+      <td style="color:${rem === 0 ? 'var(--accent2)' : rem <= 3 ? 'var(--accent)' : 'var(--text2)'};font-weight:${rem<=3?'700':'400'}">${rem}</td>
+      <td>${progressBar(paid, loan.totalEmi)}</td>
+      <td>${priorityBadge(loan.priority)}</td>
+      <td>
+        ${closed
+          ? '<span style="color:var(--accent2);font-size:12px">✓ Completed</span>'
+          : paidNow
+            ? `<span style="color:var(--accent2);font-size:12px;display:inline-flex;align-items:center;gap:4px;">✓ Paid</span>
+               <button class="undo-btn" onclick="undoPay(${loan.id},'${activeM}')">↩ Undo</button>`
+            : `<button class="pay-btn" onclick="openPayModal(${loan.id})">💳 Pay EMI</button>`
+        }
+      </td>
+    </tr>`;
+  });
+  document.getElementById('loan-tbody').innerHTML = rows || '<tr><td colspan="9" class="empty">No loans added yet.</td></tr>';
+
+  // Mobile cards
+  let cards = '';
+  [...loans].sort((a,b) => a.priority - b.priority || a.name.localeCompare(b.name))
+  .forEach(loan => {
+    const paid = getPaidCount(loan);
+    const rem = getRemaining(loan);
+    const closed = isClosed(loan);
+    const paidNow = (loan.paidMonths||{})[activeM];
+    const pct = loan.totalEmi > 0 ? Math.round((paid/loan.totalEmi)*100) : 0;
+    const fillColor = pct >= 80 ? '#4af0a0' : pct >= 40 ? '#60a0f0' : '#f0c040';
+    cards += `<div class="loan-card ${closed?'closed':''}">
+      <div class="loan-card-strip prio-${loan.priority}"></div>
+      <div class="loan-card-top">
+        <div class="loan-card-name">${loan.name}${closed?'<span class="tag-closed">DONE</span>':''}</div>
+        <div class="loan-card-emi">${fmt(loan.emi)}</div>
+      </div>
+      <div class="loan-card-meta">
+        <div class="loan-card-meta-item">EMIs: <strong>${paid}/${loan.totalEmi}</strong></div>
+        <div class="loan-card-meta-item">Remaining: <strong style="color:${rem<=3?'var(--accent)':'var(--text)'}">${rem}</strong></div>
+        ${loan.rate > 0 ? `<div class="loan-card-meta-item">Rate: <strong>${loan.rate}%</strong></div>` : ''}
+        ${loan.date ? `<div class="loan-card-meta-item">Due: <strong>${loan.date}th</strong></div>` : ''}
+      </div>
+      <div class="loan-card-progress">
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+          <div class="prog-pct">${pct}%</div>
+        </div>
+      </div>
+      <div class="loan-card-action">
+        ${closed
+          ? '<span style="color:var(--accent2);font-size:13px">✓ Completed</span>'
+          : paidNow
+            ? `<span style="color:var(--accent2);font-size:12px">✓ Paid</span>
+               <button class="undo-btn" onclick="undoPay(${loan.id},'${activeM}')">↩ Undo</button>`
+            : `<button class="pay-btn" onclick="openPayModal(${loan.id})">💳 Pay EMI</button>`
+        }
+      </div>
+    </div>`;
+  });
+  document.getElementById('loan-cards').innerHTML = cards || '<div class="empty">No loans added yet.</div>';
+
+  // Render charts after DOM update
+  requestAnimationFrame(() => renderCharts(loans, activeLoans, activeM, totalEMI, paidThisMonth, unpaidThisMonth));
+}
+
+// ─── CHARTS ───────────────────────────────────────────
+const CHART_COLORS = [
+  '#f0c040','#4af0a0','#60a0f0','#f06060','#b060f0',
+  '#f0a060','#40e0f0','#f060c0','#80f060','#a0c0f0',
+  '#f0d080','#60f0c0','#8080f0','#f08080','#c080f0',
+  '#f0b060','#40f0b0','#6090f0','#f07070','#9070f0',
+  '#e0f040','#4060f0'
+];
+
+function drawDonut(canvasId, segments, gapDeg = 3) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const outerR = Math.min(W, H) / 2 - 4;
+  const innerR = outerR * 0.62;
+  ctx.clearRect(0, 0, W, H);
+
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (total === 0) return;
+
+  const gapRad = (gapDeg * Math.PI) / 180;
+  let startAngle = -Math.PI / 2;
+
+  segments.forEach(seg => {
+    const sliceAngle = (seg.value / total) * (2 * Math.PI) - gapRad;
+    if (sliceAngle <= 0) return;
+    ctx.beginPath();
+    ctx.moveTo(cx + innerR * Math.cos(startAngle + gapRad / 2), cy + innerR * Math.sin(startAngle + gapRad / 2));
+    ctx.arc(cx, cy, outerR, startAngle + gapRad / 2, startAngle + sliceAngle + gapRad / 2);
+    ctx.arc(cx, cy, innerR, startAngle + sliceAngle + gapRad / 2, startAngle + gapRad / 2, true);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    startAngle += sliceAngle + gapRad;
+  });
+}
+
+function renderCharts(loans, activeLoans, activeM, totalEMI, paidAmt, unpaidAmt) {
+  const MONTH_NAMES_LOCAL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MONTHS_LOCAL = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+  // ── Chart 1: EMI Share by Lender ──────────────────
+  const sorted = [...activeLoans].sort((a, b) => b.emi - a.emi);
+  const segments1 = sorted.map((l, i) => ({
+    name: l.name,
+    value: l.emi,
+    color: CHART_COLORS[i % CHART_COLORS.length]
+  }));
+  drawDonut('chart-emi-share', segments1);
+  document.getElementById('chart-emi-total').textContent = fmt(totalEMI);
+
+  const leg1 = document.getElementById('legend-emi-share');
+  leg1.innerHTML = segments1.map(s => {
+    const pct = totalEMI > 0 ? Math.round((s.value / totalEMI) * 100) : 0;
+    return `<div class="chart-legend-item">
+      <div class="chart-legend-dot" style="background:${s.color}"></div>
+      <div class="chart-legend-name">${s.name}</div>
+      <div class="chart-legend-val">${fmt(s.value)}</div>
+      <div class="chart-legend-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  // ── Chart 2: Paid vs Pending this month ───────────
+  const paidCount = activeLoans.filter(l => (l.paidMonths || {})[activeM]).length;
+  const pendCount = activeLoans.length - paidCount;
+  const paidPct = activeLoans.length > 0 ? Math.round((paidCount / activeLoans.length) * 100) : 0;
+
+  const segments2 = [];
+  if (paidAmt > 0)   segments2.push({ name: 'Paid',    value: paidAmt,   color: '#4af0a0' });
+  if (unpaidAmt > 0) segments2.push({ name: 'Pending', value: unpaidAmt, color: '#f06060' });
+  if (segments2.length === 0) segments2.push({ name: 'No loans', value: 1, color: '#252836' });
+
+  drawDonut('chart-paid-pending', segments2);
+  document.getElementById('chart-paid-pct').textContent = paidPct + '%';
+
+  const mName = MONTH_NAMES_LOCAL[MONTHS_LOCAL.indexOf(activeM)] || activeM;
+  document.getElementById('chart-month-label').textContent = mName;
+
+  const leg2 = document.getElementById('legend-paid-pending');
+  leg2.innerHTML = `
+    <div class="chart-legend-item">
+      <div class="chart-legend-dot" style="background:#4af0a0"></div>
+      <div class="chart-legend-name">Paid (${paidCount} loans)</div>
+      <div class="chart-legend-val">${fmt(paidAmt)}</div>
+      <div class="chart-legend-pct">${paidPct}%</div>
+    </div>
+    <div class="chart-legend-item">
+      <div class="chart-legend-dot" style="background:#f06060"></div>
+      <div class="chart-legend-name">Pending (${pendCount} loans)</div>
+      <div class="chart-legend-val">${fmt(unpaidAmt)}</div>
+      <div class="chart-legend-pct">${100 - paidPct}%</div>
+    </div>
+    <div class="chart-legend-item" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+      <div class="chart-legend-dot" style="background:var(--accent)"></div>
+      <div class="chart-legend-name">Total monthly</div>
+      <div class="chart-legend-val">${fmt(totalEMI)}</div>
+      <div class="chart-legend-pct">100%</div>
+    </div>
+  `;
+}
+
+// ─── ALL LOANS ────────────────────────────────────────
+function renderAllLoans() {
+  const loans = state.loans;
+  const active = loans.filter(l => !isClosed(l));
+  const closed = loans.filter(l => isClosed(l));
+  const totalEMI = active.reduce((s,l) => s+l.emi, 0);
+
+  document.getElementById('loans-stats').innerHTML = `
+    <div class="stat-card yellow">
+      <div class="stat-label">Total Loans</div>
+      <div class="stat-value">${loans.length}</div>
+      <div class="stat-sub">${active.length} active, ${closed.length} closed</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Monthly Outflow</div>
+      <div class="stat-value">${fmt(totalEMI)}</div>
+      <div class="stat-sub">from active loans</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Avg Interest Rate</div>
+      <div class="stat-value">${(active.filter(l=>l.rate>0).reduce((s,l)=>s+l.rate,0)/Math.max(1,active.filter(l=>l.rate>0).length)).toFixed(1)}%</div>
+      <div class="stat-sub">across interest-bearing loans</div>
+    </div>
+  `;
+  document.getElementById('loans-meta').textContent = `${loans.length} loans total`;
+
+  let rows = '';
+  [...loans].sort((a,b) => a.priority - b.priority || a.name.localeCompare(b.name))
+  .forEach((loan, i) => {
+    const paid = getPaidCount(loan);
+    const rem = getRemaining(loan);
+    const closed = isClosed(loan);
+    rows += `<tr class="${closed ? 'closed' : ''}">
+      <td style="color:var(--text3)">${i+1}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="prio prio-${loan.priority}"></div>
+          <b>${loan.name}</b>
+        </div>
+      </td>
+      <td><span class="amount">${fmt(loan.emi)}</span></td>
+      <td style="color:var(--text2)">${loan.rate || '—'}</td>
+      <td style="color:var(--text2)">${loan.date || '—'}</td>
+      <td>${loan.totalEmi}</td>
+      <td style="color:${rem<=3&&!closed?'var(--accent)':'var(--text2)'}">${rem}</td>
+      <td style="color:var(--accent2)">${paid}</td>
+      <td>${progressBar(paid, loan.totalEmi)}</td>
+      <td>${priorityBadge(loan.priority)}</td>
+      <td>${closed
+        ? '<span class="badge badge-green">Closed ✓</span>'
+        : rem <= 3
+          ? '<span class="badge badge-yellow">Almost Done</span>'
+          : '<span class="badge badge-red">Active</span>'}</td>
+    </tr>`;
+  });
+  document.getElementById('all-loans-tbody').innerHTML = rows;
+
+  // Mobile cards for All Loans
+  let allCards = '';
+  [...loans].sort((a,b) => a.priority - b.priority || a.name.localeCompare(b.name))
+  .forEach(loan => {
+    const paid2 = getPaidCount(loan);
+    const rem2 = getRemaining(loan);
+    const closed2 = isClosed(loan);
+    const pct2 = loan.totalEmi > 0 ? Math.round((paid2/loan.totalEmi)*100) : 0;
+    const fillColor2 = pct2 >= 80 ? '#4af0a0' : pct2 >= 40 ? '#60a0f0' : '#f0c040';
+    const statusBadge = closed2
+      ? '<span class="badge badge-green">Closed ✓</span>'
+      : rem2 <= 3
+        ? '<span class="badge badge-yellow">Almost Done</span>'
+        : '<span class="badge badge-red">Active</span>';
+    allCards += `<div class="loan-card ${closed2?'closed':''}">
+      <div class="loan-card-strip prio-${loan.priority}"></div>
+      <div class="loan-card-top">
+        <div class="loan-card-name">${loan.name}</div>
+        <div class="loan-card-emi">${fmt(loan.emi)}</div>
+      </div>
+      <div class="loan-card-meta">
+        <div class="loan-card-meta-item">Paid: <strong>${paid2}/${loan.totalEmi}</strong></div>
+        <div class="loan-card-meta-item">Left: <strong>${rem2}</strong></div>
+        ${loan.rate > 0 ? `<div class="loan-card-meta-item">Rate: <strong>${loan.rate}%</strong></div>` : ''}
+        <div class="loan-card-meta-item">${statusBadge}</div>
+      </div>
+      <div class="loan-card-progress">
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill" style="width:${pct2}%;background:${fillColor2}"></div></div>
+          <div class="prog-pct">${pct2}%</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  const allCardsEl = document.getElementById('all-loans-cards');
+  if (allCardsEl) allCardsEl.innerHTML = allCards;
+}
+
+// ─── TIMELINE ─────────────────────────────────────────
+function renderTimeline() {
+  const loans = state.loans.filter(l => !isClosed(l));
+  const totalNow = loans.reduce((s,l) => s+l.emi, 0);
+  const curMonthIdx = MONTHS.indexOf(state.activeMonth);
+
+  // Build future months: simulate which loans close when
+  const loansCopy = loans.map(l => ({...l, rem: getRemaining(l)}));
+
+  const rows = [];
+  const closingCards = {};
+
+  for(let mi = 0; mi < 24; mi++) {
+    const mIdx = (curMonthIdx + mi) % 12;
+    const yearOffset = Math.floor((curMonthIdx + mi) / 12);
+    const mName = MONTH_NAMES[mIdx];
+    const year = 2025 + yearOffset;
+
+    const closing = loansCopy.filter(l => l.rem === 1);
+    const activeThisMonth = loansCopy.filter(l => l.rem > 0);
+    const load = activeThisMonth.reduce((s,l) => s+l.emi, 0);
+
+    if(closing.length > 0) {
+      const key = `${mName} ${year}`;
+      closingCards[key] = { count: closing.length, save: closing.reduce((s,l) => s+l.emi, 0), names: closing.map(l=>l.name) };
+    }
+
+    rows.push({
+      month: `${mName} ${year}`,
+      active: activeThisMonth.length,
+      load,
+      savings: totalNow - load,
+      closing: closing.map(l=>l.name)
+    });
+
+    // Decrement remaining
+    loansCopy.forEach(l => { if(l.rem > 0) l.rem--; });
+  }
+
+  // Closing cards
+  const cards = Object.entries(closingCards);
+  document.getElementById('closing-grid').innerHTML = cards.length > 0
+    ? cards.map(([month, data]) => `
+      <div class="closing-card">
+        <div>
+          <div class="closing-month">${month}</div>
+          <div class="closing-count">${data.count} loan${data.count>1?'s':''} close${data.count>1?'':'s'}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${data.names.join(', ')}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="closing-save">You save</div>
+          <div style="font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--accent2)">${fmt(data.save)}</div>
+          <div style="font-size:11px;color:var(--text3)">per month</div>
+        </div>
+      </div>`)
+      .join('')
+    : '<p style="color:var(--text3);font-size:13px">No loans closing in next 24 months.</p>';
+
+  // Timeline table
+  let trows = '';
+  rows.forEach(r => {
+    trows += `<tr>
+      <td style="font-weight:500">${r.month}</td>
+      <td style="color:var(--text2)">${r.active}</td>
+      <td><span class="amount">${fmt(r.load)}</span></td>
+      <td style="color:${r.savings>0?'var(--accent2)':'var(--text3)'}">${r.savings>0 ? fmt(r.savings) : '—'}</td>
+      <td>${r.closing.length>0
+        ? r.closing.map(n=>`<span class="badge badge-green" style="margin:2px">${n}</span>`).join('')
+        : '<span style="color:var(--text3)">—</span>'}</td>
+    </tr>`;
+  });
+  document.getElementById('timeline-tbody').innerHTML = trows;
+}
+
+// ─── SETTINGS ─────────────────────────────────────────
+function renderSettings() {
+  const list = state.loans;
+  document.getElementById('settings-loan-list').innerHTML = list.map(loan => {
+    const closed = isClosed(loan);
+    return `<div class="loan-item">
+      <div class="prio prio-${loan.priority}" style="margin-top:2px"></div>
+      <div class="loan-item-info">
+        <div class="loan-item-name">${loan.name}${closed?'<span class="tag-closed">CLOSED</span>':''}</div>
+        <div class="loan-item-meta">${loan.totalEmi} EMIs · ${getRemaining(loan)} remaining · ${loan.rate||0}% rate</div>
+      </div>
+      <div class="loan-item-emi">${fmt(loan.emi)}</div>
+      <button class="btn btn-danger" style="padding:6px 12px;font-size:12px" onclick="deleteLoan(${loan.id})">✕</button>
+    </div>`;
+  }).join('') || '<div class="empty">No loans yet. Add one above!</div>';
+
+  // Payment history
+  const history = state.payHistory || [];
+  const histEl = document.getElementById('pay-history-list');
+  if (histEl) {
+    histEl.innerHTML = history.length > 0
+      ? history.slice(0, 50).map(h => {
+          const mName = MONTH_NAMES[MONTHS.indexOf(h.month)] || h.month;
+          const dateStr = h.date ? new Date(h.date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : '';
+          return `<div class="pay-history-item">
+            <div class="pay-history-dot"></div>
+            <div class="pay-history-name">${h.loanName}</div>
+            <div class="pay-history-month">${mName}</div>
+            <div class="pay-history-amt">${fmt(h.amount)}</div>
+            <div style="font-size:11px;color:var(--text3)">${dateStr}</div>
+          </div>`;
+        }).join('')
+      : '<div class="empty" style="padding:20px">No payments recorded yet.</div>';
+  }
+}
+
+function clearHistory() {
+  if (!confirm('Clear all payment history logs? (This does not undo payments)')) return;
+  state.payHistory = [];
+  saveState();
+  renderSettings();
+}
+
+// ─── ACTIONS ──────────────────────────────────────────
+function setMonth(m) {
+  state.activeMonth = m;
+  saveState();
+  renderAll();
+}
+
+// ─── MODAL STATE ──────────────────────────────────────
+let modalLoanId = null;
+let modalSelectedMonth = null;
+
+function openPayModal(loanId) {
+  const loan = state.loans.find(l => l.id === loanId);
+  if (!loan) return;
+  modalLoanId = loanId;
+  // Default to active month if unpaid, else next unpaid month
+  const paid = loan.paidMonths || {};
+  modalSelectedMonth = MONTHS.find(m => !paid[m]) || state.activeMonth;
+
+  document.getElementById('modal-title').textContent = `Pay EMI — ${loan.name}`;
+  document.getElementById('modal-sub').textContent = `Select the month you are paying for`;
+  document.getElementById('modal-emi-val').textContent = fmt(loan.emi);
+  document.getElementById('modal-rem-val').textContent = getRemaining(loan);
+
+  // Render month grid
+  const grid = document.getElementById('modal-month-grid');
+  grid.innerHTML = MONTHS.map((m, i) => {
+    const alreadyPaid = !!paid[m];
+    const isSelected = m === modalSelectedMonth;
+    let cls = 'modal-month-btn';
+    if (alreadyPaid) cls += ' already-paid';
+    else if (isSelected) cls += ' selected';
+    return `<button class="${cls}" 
+      ${alreadyPaid ? 'disabled' : `onclick="selectModalMonth('${m}')"`}
+      title="${alreadyPaid ? 'Already paid' : MONTH_NAMES[i]}"
+    >${MONTH_NAMES[i].slice(0,3)}</button>`;
+  }).join('');
+
+  document.getElementById('pay-modal').classList.add('open');
+}
+
+function selectModalMonth(m) {
+  modalSelectedMonth = m;
+  // Re-render the grid buttons
+  const loan = state.loans.find(l => l.id === modalLoanId);
+  if (!loan) return;
+  const paid = loan.paidMonths || {};
+  document.querySelectorAll('.modal-month-btn').forEach((btn, i) => {
+    const month = MONTHS[i];
+    btn.classList.remove('selected');
+    if (!paid[month] && month === m) btn.classList.add('selected');
+  });
+}
+
+function closeModal() {
+  document.getElementById('pay-modal').classList.remove('open');
+  modalLoanId = null;
+  modalSelectedMonth = null;
+}
+
+function confirmPay() {
+  if (!modalLoanId || !modalSelectedMonth) return;
+  const loan = state.loans.find(l => l.id === modalLoanId);
+  if (!loan) return;
+  if (!loan.paidMonths) loan.paidMonths = {};
+  loan.paidMonths[modalSelectedMonth] = true;
+
+  // Log payment history
+  if (!state.payHistory) state.payHistory = [];
+  state.payHistory.unshift({
+    loanId: loan.id,
+    loanName: loan.name,
+    month: modalSelectedMonth,
+    amount: loan.emi,
+    date: new Date().toISOString()
+  });
+
+  saveState();
+  closeModal();
+  renderAll();
+}
+
+function undoPay(loanId, month) {
+  const loan = state.loans.find(l => l.id === loanId);
+  if (!loan || !loan.paidMonths) return;
+  delete loan.paidMonths[month];
+  // Remove from history
+  if (state.payHistory) {
+    const idx = state.payHistory.findIndex(h => h.loanId === loanId && h.month === month);
+    if (idx !== -1) state.payHistory.splice(idx, 1);
+  }
+  saveState();
+  renderAll();
+}
+
+// Close modal on overlay click
+document.getElementById('pay-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function addLoan() {
+  const name = document.getElementById('s-name').value.trim();
+  const emi = parseFloat(document.getElementById('s-emi').value);
+  const rate = parseFloat(document.getElementById('s-rate').value) || 0;
+  const date = parseInt(document.getElementById('s-date').value) || 1;
+  const total = parseInt(document.getElementById('s-total').value);
+  const paid = parseInt(document.getElementById('s-paid').value) || 0;
+  const priority = parseInt(document.getElementById('s-priority').value);
+
+  if(!name || isNaN(emi) || isNaN(total)) {
+    alert('Please fill Lender Name, EMI Amount, and Total EMIs.');
+    return;
+  }
+
+  // Pre-fill paid months based on already paid count
+  const paidMonths = {};
+  for(let i = 0; i < Math.min(paid, MONTHS.length); i++) {
+    paidMonths[MONTHS[i]] = true;
+  }
+
+  state.loans.push({
+    id: state.nextId++,
+    name, emi, rate, date,
+    totalEmi: total,
+    priority,
+    paidMonths
+  });
+  saveState();
+
+  // Clear form
+  ['s-name','s-emi','s-rate','s-date','s-total','s-paid'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  renderAll();
+}
+
+function deleteLoan(id) {
+  if(!confirm('Delete this loan?')) return;
+  state.loans = state.loans.filter(l => l.id !== id);
+  saveState();
+  renderAll();
+}
+
+// ─── INIT ─────────────────────────────────────────────
+// Firebase async loader above handles initial renderAll()
+// This is a fallback in case Firebase module hasn't loaded yet
+if (typeof state !== 'undefined') renderAll();
+</script>
+</body>
+</html>
