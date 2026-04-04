@@ -49,13 +49,13 @@ window._fbListen = () => {
     if (!snap.exists()) return;
     try {
       const remote = JSON.parse(snap.data().payload);
-      if (JSON.stringify(remote) !== JSON.stringify(window._appState)) {
-        window._appState = remote;
-        state = remote;
-        if (typeof renderAll === 'function') renderAll();
-        setSyncStatus('live');
-      }
-    } catch(e) {}
+      // Always update — let the app decide if re-render is needed
+      window._appState = remote;
+      state = remote;
+      localStorage.setItem('emi_v3', JSON.stringify(state));
+      if (typeof renderAll === 'function' && sessionStorage.getItem('emi_auth') === 'ok') renderAll();
+      setSyncStatus('live');
+    } catch(e) { console.error('Listener parse error', e); }
   });
 };
 
@@ -1019,9 +1019,21 @@ function clearHistory() {
   // Show cached data immediately so the screen isn't blank
   if (sessionStorage.getItem('emi_auth') === 'ok') renderAll();
 
-  // Then load from Firebase and refresh
-  if (!window._fbLoad) return;
+  // Wait for Firebase module to attach (it loads async as ES module)
+  let waited = 0;
+  while (!window._fbLoad && waited < 5000) {
+    await new Promise(r => setTimeout(r, 100));
+    waited += 100;
+  }
+
+  if (!window._fbLoad) {
+    console.warn('Firebase not available, using localStorage only');
+    if (window._setSyncStatus) window._setSyncStatus('offline');
+    return;
+  }
+
   if (window._setSyncStatus) window._setSyncStatus('loading');
+
   const remote = await window._fbLoad();
   if (remote) {
     state = remote;
@@ -1031,7 +1043,10 @@ function clearHistory() {
     // First ever run — push default data up to Firebase
     if (window._fbSave) await window._fbSave(state);
   }
+
   if (sessionStorage.getItem('emi_auth') === 'ok') renderAll();
+
+  // Start real-time listener so any change on any device syncs instantly
   if (window._fbListen) window._fbListen();
 })();
 </script>
