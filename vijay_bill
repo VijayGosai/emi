@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invoice Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #e8e8e8;
+      --white: #ffffff;
+      --ink: #111111;
+      --muted: #555;
+      --light: #cccccc;
+      --blue-hdr: #b8d4f0;
+      --border: #888888;
+      --accent: #1a5fb4;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 20px;
+      color: var(--ink);
+    }
+    h1.page-title {
+      text-align: center;
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+      color: #222;
+    }
+
+    /* layout */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+
+    /* edit panel */
+    .edit-panel {
+      background: var(--white);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.10);
+    }
+    .edit-panel h2 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent);
+      margin-bottom: 12px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid var(--accent);
+    }
+    .form-section { margin-bottom: 18px; }
+    .fg { display: grid; gap: 9px; margin-bottom: 9px; }
+    .fg.c1 { grid-template-columns: 1fr; }
+    .fg.c2 { grid-template-columns: 1fr 1fr; }
+    .fg.c3 { grid-template-columns: 1fr 1fr 1fr; }
+    label {
+      font-size: 0.68rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      display: block; margin-bottom: 3px;
+    }
+    input[type=text], input[type=number], input[type=date], input[type=email],
+    select, textarea {
+      width: 100%; padding: 7px 10px;
+      border: 1.5px solid var(--light); border-radius: 5px;
+      font-family: 'Inter', sans-serif; font-size: .84rem;
+      color: var(--ink); background: var(--white); outline: none;
+      transition: border-color .2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+    /* items editor */
+    .items-hdr {
+      display: grid;
+      grid-template-columns: 26px 2.4fr 0.65fr 1fr 1fr 30px;
+      gap: 6px;
+      font-size: .66rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em;
+      color: var(--muted);
+      padding: 0 2px 5px;
+      border-bottom: 1px solid var(--light);
+      margin-bottom: 5px;
+    }
+    .item-row {
+      display: grid;
+      grid-template-columns: 26px 2.4fr 0.65fr 1fr 1fr 30px;
+      gap: 6px; align-items: center; margin-bottom: 5px;
+    }
+    .item-row .sr { font-size: .75rem; font-weight: 600; color: var(--muted); text-align: center; }
+    .item-row input { padding: 6px 7px; font-size: .82rem; }
+    .item-amt { font-size: .82rem; font-weight: 600; text-align: right; color: var(--ink); }
+    .rm-btn {
+      width: 26px; height: 26px; border: none; background: none;
+      color: #c00; cursor: pointer; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .95rem; transition: background .15s;
+    }
+    .rm-btn:hover { background: #fdecea; }
+    .add-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 12px; background: #f0f7ff;
+      border: 1.5px dashed #90b8e8; border-radius: 6px;
+      color: var(--accent); font-size: .82rem; font-weight: 600;
+      cursor: pointer; width: 100%; margin-top: 4px; transition: all .18s;
+    }
+    .add-row:hover { background: #ddeeff; border-color: var(--accent); }
+
+    /* buttons */
+    .action-btns { display: flex; gap: 10px; margin-top: 16px; }
+    .btn {
+      flex: 1; padding: 11px 0; border: none; border-radius: 6px;
+      font-family: 'Inter', sans-serif; font-size: .87rem; font-weight: 600;
+      cursor: pointer; transition: all .18s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #1348a0; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(26,95,180,.3); }
+    .btn-secondary { background: #eee; color: var(--ink); }
+    .btn-secondary:hover { background: #ddd; }
+    .btn svg { width: 15px; height: 15px; }
+
+    /* preview */
+    .preview-panel { display: flex; flex-direction: column; gap: 10px; }
+    .preview-label {
+      text-align: center; font-size: .7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+    }
+
+    /* ── INVOICE BOX ── */
+    #inv-box {
+      background: var(--white);
+      border: 1.5px solid #999;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11.5px;
+      line-height: 1.4;
+      box-shadow: 0 2px 16px rgba(0,0,0,.12);
+    }
+    .inv-wrap { padding: 14px 18px 12px; }
+
+    .inv-mobile { text-align: right; font-size: 10px; margin-bottom: 4px; }
+
+    .inv-head { text-align: center; margin-bottom: 10px; }
+    .inv-head .h-invoice { font-size: 12px; font-weight: 700; letter-spacing: .1em; }
+    .inv-head .h-name {
+      font-size: 19px; font-weight: 900;
+      text-decoration: underline; text-transform: uppercase;
+      line-height: 1.15;
+    }
+    .inv-head .h-addr { font-size: 9.5px; margin-top: 2px; line-height: 1.5; }
+    .inv-head .h-pan { font-size: 10.5px; font-weight: 700; margin-top: 2px; }
+
+    /* meta row */
+    .inv-meta { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+    .inv-billto-box {
+      flex: 1;
+      border: 1px solid var(--border);
+      min-height: 72px;
+    }
+    .inv-billto-lbl {
+      background: var(--blue-hdr);
+      font-size: 10px; font-weight: 700;
+      padding: 3px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .inv-billto-body { padding: 5px 6px; }
+    .inv-billto-body .to-word { font-weight: 700; font-size: 10.5px; }
+    .inv-billto-body .c-name { font-weight: 700; font-size: 11px; margin-top: 2px; }
+    .inv-billto-body .c-addr { font-size: 10px; margin-top: 1px; line-height: 1.45; }
+
+    .inv-no-tbl { border-collapse: collapse; flex-shrink: 0; }
+    .inv-no-tbl td {
+      border: 1px solid var(--border);
+      padding: 4px 8px; font-size: 10.5px;
+    }
+    .inv-no-tbl td:first-child { background: var(--blue-hdr); font-weight: 700; }
+    .inv-no-tbl td:last-child { min-width: 80px; }
+
+    /* items table */
+    .inv-tbl { width: 100%; border-collapse: collapse; }
+    .inv-tbl th {
+      background: var(--blue-hdr);
+      border: 1px solid var(--border);
+      font-size: 10.5px; font-weight: 700;
+      text-align: center; padding: 5px 4px;
+    }
+    .inv-tbl td {
+      border: 1px solid var(--border);
+      font-size: 10.5px; padding: 4px 5px;
+      vertical-align: middle;
+    }
+    .inv-tbl td.tc { text-align: center; }
+    .inv-tbl td.tr { text-align: right; }
+    .inv-tbl td.tf { text-align: right; font-weight: 600; }
+    .inv-tbl .sp td { height: 14px; }
+    .inv-tbl .sub-row td { font-weight: 700; font-size: 11px; padding: 4px 5px; }
+    .inv-tbl .gt-row td { font-weight: 900; font-size: 13px; padding: 5px; background: #f6f6f6; }
+    .inv-words td { font-weight: 700; font-size: 10.5px; padding: 4px 6px; border: 1px solid var(--border); }
+
+    .inv-foot {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      margin-top: 14px; padding-top: 6px;
+    }
+    .inv-foot .cs { font-size: 10.5px; }
+    .inv-foot .auth { text-align: right; }
+    .inv-foot .auth .fp { font-size: 10.5px; font-weight: 700; margin-bottom: 26px; }
+    .inv-foot .auth .an {
+      font-size: 10.5px; font-weight: 700;
+      border-top: 1px solid #111; padding-top: 3px; margin-top: 3px;
+    }
+    .inv-foot .auth .as { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+
+    /* toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #222; color: #fff; padding: 10px 20px;
+      border-radius: 7px; font-size: .84rem;
+      border-left: 4px solid #4caf50;
+      transform: translateY(60px); opacity: 0;
+      transition: all .3s cubic-bezier(.34,1.56,.64,1); z-index: 999;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .fg.c2, .fg.c3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<h1 class="page-title">📄 Invoice Generator</h1>
+
+<div class="layout">
+
+  <!-- EDIT PANEL -->
+  <div class="edit-panel">
+
+    <div class="form-section">
+      <h2>Your / Proprietor Details</h2>
+      <div class="fg c1"><div><label>Your Name / Firm Name</label>
+        <input type="text" id="bizName" value="DILIPGIRI DHIRAJGIRI GOSAI" oninput="update()"/></div></div>
+      <div class="fg c1"><div><label>Address Line 1</label>
+        <input type="text" id="bizAddr1" value="ADD: - SOKALI, RAMDEVPIR MANDIR, NEAR SARVOTTAM HOTEL" oninput="update()"/></div></div>
+      <div class="fg c1"><div><label>Address Line 2</label>
+        <input type="text" id="bizAddr2" value="TA: VIRAMGAM, DISTT. AHMEDABAD, GUJARAT-382150" oninput="update()"/></div></div>
+      <div class="fg c2">
+        <div><label>PAN Number</label>
+          <input type="text" id="bizPAN" value="CBJPG4768D" oninput="update()"/></div>
+        <div><label>Mobile Number</label>
+          <input type="text" id="bizMobile" value="+91 82389 22452" oninput="update()"/></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>Invoice Details</h2>
+      <div class="fg c3">
+        <div><label>Invoice No.</label>
+          <input type="text" id="invNo" value="08" oninput="update()"/></div>
+        <div><label>Date</label>
+          <input type="date" id="invDate" oninput="update()"/></div>
+        <div><label>Currency</label>
+          <select id="currency" onchange="update()">
+            <option value="Rs.">Rs. — INR</option>
+            <option value="$">$ — USD</option>
+            <option value="€">€ — EUR</option>
+            <option value="£">£ — GBP</option>
+          </select></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>Bill To (Client Details)</h2>
+      <div class="fg c1"><div><label>Client / Company Name</label>
+        <input type="text" id="cName" value="CARDIOLABS HEALTHCARE INDIA PRIVATE LIMITED" oninput="update()"/></div></div>
+      <div class="fg c1"><div><label>Address Line 1</label>
+        <input type="text" id="cAddr1" value="Plot No. 1512, JLPL Industrial Park, Sector-82" oninput="update()"/></div></div>
+      <div class="fg c1"><div><label>Address Line 2</label>
+        <input type="text" id="cAddr2" value="Mohali Punjab - 140306" oninput="update()"/></div></div>
+    </div>
+
+    <div class="form-section">
+      <h2>Line Items</h2>
+      <div class="items-hdr">
+        <span>Sr.</span><span>Description</span>
+        <span style="text-align:center">Qty</span>
+        <span style="text-align:right">Rate</span>
+        <span style="text-align:right">Amount</span>
+        <span></span>
+      </div>
+      <div id="items-ed"></div>
+      <button class="add-row" onclick="addItem()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Item
+      </button>
+    </div>
+
+    <div class="form-section">
+      <h2>Authorised Signatory</h2>
+      <div class="fg c1"><div><label>Name (shown at bottom right)</label>
+        <input type="text" id="authName" value="DILIPGIRI DHIRAJGIRI GOSAI" oninput="update()"/></div></div>
+    </div>
+
+    <div class="action-btns">
+      <button class="btn btn-secondary" onclick="resetForm()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+      <button class="btn btn-primary" onclick="generatePDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </button>
+    </div>
+
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="preview-panel">
+    <div class="preview-label">🔍 Live Preview</div>
+    <div id="inv-box"></div>
+    <button class="btn btn-primary" onclick="generatePDF()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Generate &amp; Download PDF
+    </button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let items = [], idc = 0;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('invDate').value = new Date().toISOString().split('T')[0];
+    addItem('Databased in LVGL', 1, 8000);
+    addItem('Chart in LVGL', 1, 7000);
+    update();
+  });
+
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const cur = () => g('currency') || 'Rs.';
+  const fN = n => parseFloat(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  function ddmmyyyy(s) {
+    if (!s) return '';
+    const d = new Date(s + 'T00:00:00');
+    return [String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear()].join('/');
+  }
+
+  function numToWords(n) {
+    n = Math.round(n);
+    if (!n) return 'Zero Only';
+    const o=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const t=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const two=n=>n<20?o[n]:t[Math.floor(n/10)]+(n%10?' '+o[n%10]:'');
+    const thr=n=>n<100?two(n):o[Math.floor(n/100)]+' Hundred'+(n%100?' '+two(n%100):'');
+    let w='';
+    if(n>=10000000){w+=thr(Math.floor(n/10000000))+' Crore ';n%=10000000;}
+    if(n>=100000){w+=thr(Math.floor(n/100000))+' Lakh ';n%=100000;}
+    if(n>=1000){w+=thr(Math.floor(n/1000))+' Thousand ';n%=1000;}
+    if(n>0)w+=thr(n);
+    return w.trim()+' Only';
+  }
+
+  function addItem(desc='', qty=1, rate=0) {
+    items.push({id:++idc, desc, qty, rate});
+    renderEditor(); update();
+  }
+  function removeItem(id) {
+    items = items.filter(i=>i.id!==id);
+    renderEditor(); update();
+  }
+  function setField(id, f, v) {
+    const it = items.find(i=>i.id===id);
+    if(it) it[f]=v;
+    const row = document.querySelector(`[data-rid="${id}"]`);
+    if(row && it) {
+      const a=(parseFloat(it.qty)||0)*(parseFloat(it.rate)||0);
+      row.querySelector('.item-amt').textContent = cur()+' '+fN(a);
+    }
+    update();
+  }
+
+  function renderEditor() {
+    const c=document.getElementById('items-ed');
+    c.innerHTML='';
+    items.forEach((it,idx)=>{
+      const a=(parseFloat(it.qty)||0)*(parseFloat(it.rate)||0);
+      const r=document.createElement('div');
+      r.className='item-row'; r.dataset.rid=it.id;
+      r.innerHTML=`
+        <div class="sr">${idx+1}</div>
+        <input type="text" placeholder="Description" value="${esc(it.desc)}" oninput="setField(${it.id},'desc',this.value)"/>
+        <input type="number" min="0" value="${it.qty}" oninput="setField(${it.id},'qty',this.value)" style="text-align:center"/>
+        <input type="number" min="0" step="0.01" value="${it.rate}" oninput="setField(${it.id},'rate',this.value)" style="text-align:right"/>
+        <div class="item-amt">${cur()} ${fN(a)}</div>
+        <button class="rm-btn" onclick="removeItem(${it.id})" title="Remove">✕</button>`;
+      c.appendChild(r);
+    });
+  }
+
+  function total() {
+    return items.reduce((s,i)=>s+(parseFloat(i.qty)||0)*(parseFloat(i.rate)||0),0);
+  }
+
+  function update() {
+    const c = cur(), tot = total(), words = numToWords(tot);
+    const date = ddmmyyyy(g('invDate'));
+    const spacers = Math.max(0, 8 - items.length);
+    const itemRows = items.map((it,idx)=>{
+      const a=(parseFloat(it.qty)||0)*(parseFloat(it.rate)||0);
+      return `<tr><td class="tc">${idx+1}</td><td>${esc(it.desc)}</td><td class="tc">${parseFloat(it.qty)||0}</td><td class="tr">${fN(it.rate)}</td><td class="tf">${fN(a)}</td></tr>`;
+    }).join('');
+    const spRows = Array(spacers).fill('<tr class="sp"><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+
+    document.getElementById('inv-box').innerHTML = `
+    <div class="inv-wrap">
+      <div class="inv-mobile">Mobile No.: ${esc(g('bizMobile'))}</div>
+      <div class="inv-head">
+        <div class="h-invoice">INVOICE</div>
+        <div class="h-name">${esc(g('bizName'))}</div>
+        <div class="h-addr">${esc(g('bizAddr1'))}<br/>${esc(g('bizAddr2'))}</div>
+        <div class="h-pan">PAN: ${esc(g('bizPAN'))}</div>
+      </div>
+
+      <div class="inv-meta">
+        <div class="inv-billto-box">
+          <div class="inv-billto-lbl">BILL TO</div>
+          <div class="inv-billto-body">
+            <div class="to-word">To</div>
+            <div class="c-name">${esc(g('cName'))}</div>
+            <div class="c-addr">${esc(g('cAddr1'))}<br/>${esc(g('cAddr2'))}</div>
+          </div>
+        </div>
+        <table class="inv-no-tbl">
+          <tr><td>INVOICE NO.</td><td>${esc(g('invNo'))}</td></tr>
+          <tr><td>DATE</td><td>${date}</td></tr>
+        </table>
+      </div>
+
+      <table class="inv-tbl">
+        <thead><tr>
+          <th style="width:40px">Sr.No.</th>
+          <th>DESCRIPTION</th>
+          <th style="width:50px">QTY</th>
+          <th style="width:90px">RATE</th>
+          <th style="width:100px">AMOUNT ${c}</th>
+        </tr></thead>
+        <tbody>
+          ${itemRows}${spRows}
+          <tr class="sub-row">
+            <td colspan="3" style="border:none;border-bottom:1px solid #888"></td>
+            <td class="tr" style="font-weight:700">TOTAL</td>
+            <td class="tf">${fN(tot)}</td>
+          </tr>
+          <tr class="gt-row">
+            <td colspan="3" style="text-align:center;font-size:13px;font-weight:900">TOTAL</td>
+            <td colspan="2" class="tr" style="font-size:13px;font-weight:900">${fN(tot)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <table style="width:100%;border-collapse:collapse">
+        <tr class="inv-words"><td>Amount in Words : ${words}</td></tr>
+      </table>
+
+      <div class="inv-foot">
+        <div class="cs">Customer's Signature</div>
+        <div class="auth">
+          <div class="fp">For Proprietor</div>
+          <div class="an">${esc(g('authName'))}</div>
+          <div class="as">AUTHORISED SIGNATORY</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ── PDF ── */
+  async function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    if (!jsPDF) { showToast('❌ PDF library not loaded.'); return; }
+
+    const c = cur(), tot = total(), words = numToWords(tot);
+    const date = ddmmyyyy(g('invDate'));
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const W=210, ML=14, MR=14, CW=W-ML-MR;
+    let y = ML;
+
+    const BK=[0,0,0], WH=[255,255,255], BH=[184,212,240], GR=[246,246,246];
+
+    // outer border
+    doc.setDrawColor(130,130,130); doc.setLineWidth(0.5);
+    doc.rect(ML, y, CW, 270);
+    y += 5;
+
+    // mobile
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(60,60,60);
+    doc.text('Mobile No.: '+g('bizMobile'), ML+CW-2, y, {align:'right'});
+    y += 5;
+
+    // INVOICE word
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...BK);
+    doc.text('INVOICE', ML+CW/2, y, {align:'center'});
+    y += 7;
+
+    // Company name + underline
+    doc.setFontSize(18); doc.setFont('helvetica','bold');
+    const nm = g('bizName').toUpperCase();
+    doc.text(nm, ML+CW/2, y, {align:'center'});
+    const nw = doc.getTextWidth(nm);
+    doc.setLineWidth(0.7); doc.line(ML+CW/2-nw/2, y+0.8, ML+CW/2+nw/2, y+0.8);
+    y += 5;
+
+    // Address
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(g('bizAddr1'), ML+CW/2, y, {align:'center'}); y += 4.5;
+    doc.text(g('bizAddr2'), ML+CW/2, y, {align:'center'}); y += 4.5;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('PAN: '+g('bizPAN'), ML+CW/2, y, {align:'center'}); y += 7;
+
+    // Bill-to box (left) + invoice no table (right)
+    const BTX=ML+2, BTW=92, BTH=34, BTY=y;
+
+    // Invoice No table (right side)
+    const NTX=ML+2+BTW+4, NTW=CW-BTW-6;
+    const rows2=[['INVOICE NO.', g('invNo')], ['DATE', date]];
+    rows2.forEach((r,i)=>{
+      const ry=BTY+i*8;
+      doc.setFillColor(...BH); doc.rect(NTX, ry, NTW*0.55, 7,'F');
+      doc.setDrawColor(130,130,130); doc.setLineWidth(0.3);
+      doc.rect(NTX, ry, NTW*0.55, 7);
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...BK);
+      doc.text(r[0], NTX+2, ry+4.8);
+      doc.rect(NTX+NTW*0.55, ry, NTW*0.45, 7);
+      doc.setFont('helvetica','normal');
+      doc.text(r[1], NTX+NTW*0.55+2, ry+4.8);
+    });
+
+    // Bill-to box
+    doc.setDrawColor(130,130,130); doc.setLineWidth(0.3);
+    doc.rect(BTX, BTY, BTW, BTH);
+    doc.setFillColor(...BH); doc.rect(BTX, BTY, BTW, 7,'F');
+    doc.rect(BTX, BTY, BTW, 7);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...BK);
+    doc.text('BILL TO', BTX+2, BTY+4.8);
+    let by=BTY+10;
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text('To', BTX+2, by); by+=4.5;
+    doc.setFontSize(9.5);
+    const clines=doc.splitTextToSize(g('cName'), BTW-4);
+    doc.text(clines, BTX+2, by); by+=clines.length*4.5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    const alines=doc.splitTextToSize(g('cAddr1'), BTW-4);
+    doc.text(alines, BTX+2, by); by+=alines.length*4;
+    doc.text(g('cAddr2'), BTX+2, by);
+
+    y = BTY + BTH + 4;
+
+    // Items table
+    const tbody = items.map((it,idx)=>{
+      const a=(parseFloat(it.qty)||0)*(parseFloat(it.rate)||0);
+      return [String(idx+1), it.desc||'', String(parseFloat(it.qty)||0), fN(it.rate), fN(a)];
+    });
+    const sc=Math.max(0, 8-items.length);
+    for(let i=0;i<sc;i++) tbody.push(['','','','','']);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Sr.No.','DESCRIPTION','QTY','RATE','AMOUNT '+c]],
+      body: tbody,
+      margin: {left:ML+2, right:MR+2},
+      headStyles: { fillColor:BH, textColor:BK, fontStyle:'bold', fontSize:9,
+                    lineColor:[130,130,130], lineWidth:0.3, cellPadding:3 },
+      bodyStyles: { fontSize:9, cellPadding:{top:3,bottom:3,left:3,right:3},
+                    textColor:BK, lineColor:[180,180,180], lineWidth:0.25 },
+      columnStyles: {
+        0:{halign:'center',cellWidth:13},
+        1:{halign:'left'},
+        2:{halign:'center',cellWidth:14},
+        3:{halign:'right',cellWidth:28},
+        4:{halign:'right',cellWidth:32},
+      },
+      theme:'grid',
+    });
+    y = doc.lastAutoTable.finalY;
+
+    // Subtotal row
+    const TX=ML+2, TW=CW-4;
+    doc.setDrawColor(130,130,130); doc.setLineWidth(0.3);
+    doc.rect(TX, y, TW, 8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...BK);
+    doc.text('TOTAL', TX+TW-34, y+5.3, {align:'right'});
+    doc.text(fN(tot), TX+TW-2, y+5.3, {align:'right'});
+    y += 8;
+
+    // Grand total row
+    doc.setFillColor(...GR); doc.rect(TX, y, TW, 9, 'F');
+    doc.rect(TX, y, TW, 9);
+    doc.setFontSize(12.5); doc.setFont('helvetica','bold');
+    doc.text('TOTAL', TX+TW*0.38, y+6.3, {align:'center'});
+    doc.text(fN(tot), TX+TW-2, y+6.3, {align:'right'});
+    y += 9;
+
+    // Amount in words
+    doc.rect(TX, y, TW, 8);
+    doc.setFontSize(9.5); doc.setFont('helvetica','bold');
+    doc.text('Amount in Words : '+words, TX+3, y+5.3);
+    y += 8;
+
+    // Footer
+    y += 10;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    doc.text("Customer's Signature", TX+3, y+22);
+    doc.setFont('helvetica','bold');
+    doc.text('For Proprietor', TX+TW, y, {align:'right'});
+    y += 28;
+    doc.setLineWidth(0.4); doc.line(TX+TW-52, y, TX+TW, y);
+    doc.text(g('authName'), TX+TW, y+5, {align:'right'});
+    doc.setFontSize(8.5);
+    doc.text('AUTHORISED SIGNATORY', TX+TW, y+10, {align:'right'});
+
+    const fname = `Invoice_${g('invNo')}_${(g('cName')||'client').replace(/[^a-zA-Z0-9]/g,'_').substring(0,18)}.pdf`;
+    doc.save(fname);
+    showToast('✅ Invoice downloaded!');
+  }
+
+  function resetForm() {
+    if(!confirm('Reset all fields?')) return;
+    ['bizName','bizAddr1','bizAddr2','bizPAN','bizMobile','invNo',
+     'cName','cAddr1','cAddr2','authName'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('invDate').value = new Date().toISOString().split('T')[0];
+    items=[]; idc=0; renderEditor(); update();
+  }
+
+  function showToast(msg) {
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),3000);
+  }
+</script>
+</body>
+</html>
