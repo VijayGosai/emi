@@ -1,15 +1,29 @@
-From,To,Task,Details,Hours
-2026-10-29,2026-10-30,Sensor page and reports,"Average tile and larger sensor title; downtime from reading gaps; Downtime and Average report options",4
-2026-10-30,2026-11-05,Settings,"Sensor card customization with live preview; full-width layout; test push and test SMS to a chosen user",10
-2026-11-03,2026-11-05,Location maps,"Floor plans with live sensor boxes; map editor with autosave, undo/redo, right-click menus, snap to grid; status colors; View on Map",24
-2026-11-03,2026-11-03,History Undo,"Undo actions from the History page",4
-2026-11-03,2026-11-04,Users page,"Details card on hover; right-click menu",3
-2026-11-05,2026-11-11,HTTP devices,"Readings over HTTP (PRTG format) alongside MQTT; HTTP sensor simulator; Device_key sensor naming",14
-2026-11-06,2026-11-06,Web and mobile app sync,"Acknowledge, un-acknowledge, resolve and Clear on alerts; email/SMS/push on/off switches",10
-2026-11-06,2026-11-09,Messaging,"Chats; announcements to users, groups and locations with replies; WhatsApp-style layout",20
-2026-11-09,2026-11-09,Custom notifications,"Master admin push message, shown with alerts until cleared",6
-2026-11-09,2026-11-11,Sensor pause,"Pause for a set time, until a date and time, from-to window, daily or on selected days",12
-2026-11-11,2026-11-11,Smaller changes,"+972 phone limit; new user notification defaults; alert table layout; preview fix",3
-2026-11-08,2026-11-11,Server stability,"Fixed 504 errors; automatic restart watchdog; fixed location page 404s; server performance check",8
-2026-11-06,2026-11-11,Mobile app specifications,"Implementation instructions for alert sync, maps, messaging, custom notifications and pause",6
-2026-11-11,2026-11-13,Sensor pause follow-ups,"Planned pause shown in blue with one-click cancel; settings save keeps planned pause; dev-server restart fix",3
+Date,Task,Details,Hours
+2026-10-29,Sensor page,"Added an average-value tile to the sensor page and made the sensor title larger and clearer above the gauge.",1
+2026-10-29,Reports,"Gaps in sensor readings now count as downtime in reports. Added Downtime and Average options to the report screen.",3
+2026-10-30,Settings: sensor card design,"Settings to customize the sensor card's size, text and colors, with a live preview of the result. Settings page now uses the full screen width.",6
+2026-11-02,Location maps,"New location maps: upload a floor plan, place live sensor boxes on it, and draw rooms, walls, doors, windows, entries, exits and stairs. Server storage and access rules per user role.",10
+2026-11-03,Map editor,"Map editor with autosave, undo/redo, right-click menus, and sensor box shape, size and color options.",8
+2026-11-03,History Undo,"Actions recorded in History can now be undone from the History page.",4
+2026-11-04,Users page,"Details card when hovering a user's name, and a right-click menu with the common user actions.",3
+2026-11-04,Settings: test push notification,"Admin can send a test push notification to a chosen user's phone to check delivery.",2
+2026-11-04,Location maps,"Sensor values on the map shown in their status color (OK, warning, down and so on).",1
+2026-11-04,HTTP devices,"Started HTTP device support: devices can send readings over HTTP instead of MQTT.",4
+2026-11-05,Location maps,"View on Map popup from any sensor, snap to grid in the editor, and Back returns to the page you came from.",5
+2026-11-05,Settings: test SMS,"Admin can send a test SMS to a chosen user to check SMS delivery.",2
+2026-11-05,HTTP sensor simulator,"Web-based simulator that sends device readings in the PRTG HTTP push format, for testing HTTP devices without hardware.",4
+2026-11-06,HTTP devices,"Finished HTTP devices: readings received on port 5055 in PRTG format alongside MQTT, offline detection when a device goes silent, and a per-owner removal timeout.",4
+2026-11-06,Web and mobile app sync,"Acknowledge, un-acknowledge, resolve and Clear on alerts now stay in sync between the web and the phone app, live. Users can turn their own email/SMS/push notifications on or off, synced both ways.",8
+2026-11-07,Messaging,"New messaging system: chats between the master admin, super admins and their users, plus announcements to selected users, groups or locations. Live delivery, push to phones, unread counts.",10
+2026-11-07,Mobile app specifications,"Written implementation instructions for the Android app: alert and notification sync, and location maps.",2
+2026-11-08,Server stability,"Investigated the repeated 504 errors (server running out of memory). Removed the memory cap and added an automatic watchdog that restarts the web server before it slows down.",6
+2026-11-08,Messaging,"Simplified messaging: removed the separate Issue/Service/Help screens; announcements now land in each person's chat so they can reply.",4
+2026-11-09,Messaging,"WhatsApp-style layout with a single new-chat button instead of several, and clearer wording for selected users, groups and locations.",4
+2026-11-09,Custom notifications,"Master admin can write a message and push it to chosen people. It shows on top of their alerts until they clear it, and the admin sees who has cleared it.",6
+2026-11-10,Sensor pause,"Pause a sensor from its menu for a set time (15 minutes to 7 days) or until a date and time; it resumes by itself.",6
+2026-11-10,Smaller changes,"Phone numbers limited to 9 digits after +972. New users get Email and Push alerts by default (SMS optional). Alert table actions always visible.",3
+2026-11-10,Mobile app specifications,"Written implementation instructions for the Android app: messaging, custom notifications and timed pause.",2
+2026-11-11,Sensor pause schedules,"Planned pause from one date and time to another, and a daily pause on every day or selected days. The server starts and ends them automatically.",6
+2026-11-11,HTTP devices,"New HTTP sensors are named in the Device_key format (e.g. 4C9A5E_temp3) with short unit names.",2
+2026-11-11,Server stability,"Fixed location pages showing 'page not found'. The automatic restart now waits for the old server to stop fully, and its health check also tests location pages.",2
+2026-11-12,Sensor pause follow-ups,"A sensor with a planned pause shows in blue, and one click on 'Resume Pause' cancels the plan. Saving a sensor's settings no longer cancels a planned pause. Sensor preview no longer opens over the right-click menu.",3
