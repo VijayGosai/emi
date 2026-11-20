@@ -4,7 +4,7 @@ Work on the IoT monitoring platform (web, server and mobile app).
 
 | Period | File | Hours |
 |---|---|---|
-| 29 Oct – 20 Nov 2026 | [2026-11.csv](2026-11.csv) | 165 |
+| 29 Oct – 20 Nov 2026 | [2026-11.csv](2026-11.csv) | 170 |
 
 ## 29 Oct – 20 Nov 2026
 
@@ -52,7 +52,9 @@ Work on the IoT monitoring platform (web, server and mobile app).
 | 20 Nov | Sensor settings | Min/Max scale for the gauge and chart; calibration (multiply, divide, offset) applied to new readings. | 2 |
 | 20 Nov | Smaller changes | Notification templates View button, Messages and Report layout fixes, alert delivery switch on the dev server, production SSH access for a client PC. | 1 |
 | 20 Nov | Device MQTT commands | Commands to Tasmota devices from the right-click menu (and a button on phones and the device page): Check Now, Set TelePeriod, device and network information (Status 0 / 5), device name, Restart and Reset. The device's answer is shown, every command is recorded in History, and the Tasmota simulator answers commands for testing. | 5 |
-| | **Total** | | **165** |
+| 20 Nov | Device console | Terminal-style console for a device (master admin): type any Tasmota command and see the raw answer, with earlier commands recalled. On phones a full-screen terminal that types at the prompt, fits above the keyboard and keeps the keyboard open, with one-tap quick commands. | 3 |
+| 20 Nov | Battery sensors and Check Now | Mark a sensor as a battery with full (100%) and empty (0%) voltages; cards and the sensor page show the level in % with a battery icon. Check Now added to the sensor menu. | 2 |
+| | **Total** | | **170** |
 
 ## Adding entries
 

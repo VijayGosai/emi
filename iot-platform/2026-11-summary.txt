@@ -95,7 +95,7 @@ IoT Platform — Work summary (29/10/2026 – 20/11/2026)
     UI redesign of all pop-up windows and confirmations to match the design
     boards, on desktop and phone.
 
-20/11/2026   16 hours
+20/11/2026   21 hours
     Icons in the side and right-click menus, bigger status dots,
     back/forward buttons on every page and delete buttons always last.
     Groups list hover lists of users, locations, devices and sensors; Role
@@ -108,5 +108,8 @@ IoT Platform — Work summary (29/10/2026 – 20/11/2026)
     production SSH access for a client PC. Device commands over MQTT from
     the right-click menu: Check Now, Set TelePeriod, Status 0 / 5, device
     name, Restart and Reset, with the answer shown and recorded in History.
+    Device console for any Tasmota command, with a full-screen terminal on
+    phones. Battery sensors shown as a % with a battery icon, and Check Now
+    on the sensor menu.
 
-Total: 165 hours
+Total: 170 hours
