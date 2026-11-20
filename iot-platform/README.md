@@ -4,9 +4,9 @@ Work on the IoT monitoring platform (web, server and mobile app).
 
 | Period | File | Hours |
 |---|---|---|
-| 29 Oct – 13 Nov 2026 | [2026-11.csv](2026-11.csv) | 121 |
+| 29 Oct – 20 Nov 2026 | [2026-11.csv](2026-11.csv) | 160 |
 
-## 29 Oct – 13 Nov 2026
+## 29 Oct – 20 Nov 2026
 
 | Date | Task | Details | Hours |
 |---|---|---|---|
@@ -38,7 +38,20 @@ Work on the IoT monitoring platform (web, server and mobile app).
 | 11 Nov | HTTP devices | New HTTP sensors are named in the Device_key format (e.g. 4C9A5E_temp3) with short unit names. | 2 |
 | 11 Nov | Server stability | Fixed location pages showing 'page not found'. The automatic restart now waits for the old server to stop fully, and its health check also tests location pages. | 2 |
 | 12 Nov | Sensor pause follow-ups | A sensor with a planned pause shows in blue, and one click on 'Resume Pause' cancels the plan. Saving a sensor's settings no longer cancels a planned pause. Sensor preview no longer opens over the right-click menu. | 3 |
-| | **Total** | | **121** |
+| 14 Nov | Production server | Production deployment kit (push from dev, release folders, rollback). Production database copied from dev, readings compression on production, faster loading of location users, Nginx header fix. | 6 |
+| 14 Nov | Dev server move | Dev server moved to dserver.from-il.com. | 2 |
+| 16 Nov | Sign out | Sign out now returns to the login screen. | 1 |
+| 17 Nov | Sensor filters | Sensor status filters on the dashboards; alert rows link to their sensor. | 3 |
+| 18 Nov | Phone layout | Web pages fit phone screens. | 3 |
+| 18 Nov | UI redesign | New look matching the design boards: blue main color, light sidebar, phone bottom bar, dashboards, sensor and device pages, Alerts, History, Report, list pages, Messages, Settings and maps. Sensor card New/Standard design choice in Settings. | 10 |
+| 19 Nov | UI redesign: pop-ups | All pop-up windows and confirmations match the design boards, on desktop and phone. | 3 |
+| 20 Nov | UI redesign: menus and buttons | Icons in the side menu and right-click menus, bigger status dots, back/forward buttons on every page, delete buttons always last. | 2 |
+| 20 Nov | Groups and Users lists | Hover lists of users, locations, devices and sensors (with status colors) on the Groups list; Role and Owner columns on the Users list. | 1 |
+| 20 Nov | Alerts | Tab totals, paging past 200 alerts, new column order, filters by type with counts, one Ack/Un-ack button, clearing only resolved alerts with checkboxes. | 3 |
+| 20 Nov | Personalize | Group header strip; box border, separator line and strip colors; Personalize page with a live preview of the real pages beside the controls. | 2 |
+| 20 Nov | Sensor settings | Min/Max scale for the gauge and chart; calibration (multiply, divide, offset) applied to new readings. | 2 |
+| 20 Nov | Smaller changes | Notification templates View button, Messages and Report layout fixes, alert delivery switch on the dev server, production SSH access for a client PC. | 1 |
+| | **Total** | | **160** |
 
 ## Adding entries
 
