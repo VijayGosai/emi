@@ -95,7 +95,7 @@ IoT Platform — Work summary (29/10/2026 – 20/11/2026)
     UI redesign of all pop-up windows and confirmations to match the design
     boards, on desktop and phone.
 
-20/11/2026   11 hours
+20/11/2026   16 hours
     Icons in the side and right-click menus, bigger status dots,
     back/forward buttons on every page and delete buttons always last.
     Groups list hover lists of users, locations, devices and sensors; Role
@@ -105,6 +105,8 @@ IoT Platform — Work summary (29/10/2026 – 20/11/2026)
     line colors and a live preview of the real pages. Sensor Min/Max scale
     and calibration (multiply, divide, offset). Templates View button,
     Messages and Report layout fixes, dev alert delivery switch and
-    production SSH access for a client PC.
+    production SSH access for a client PC. Device commands over MQTT from
+    the right-click menu: Check Now, Set TelePeriod, Status 0 / 5, device
+    name, Restart and Reset, with the answer shown and recorded in History.
 
-Total: 160 hours
+Total: 165 hours

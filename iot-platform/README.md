@@ -4,7 +4,7 @@ Work on the IoT monitoring platform (web, server and mobile app).
 
 | Period | File | Hours |
 |---|---|---|
-| 29 Oct – 20 Nov 2026 | [2026-11.csv](2026-11.csv) | 160 |
+| 29 Oct – 20 Nov 2026 | [2026-11.csv](2026-11.csv) | 165 |
 
 ## 29 Oct – 20 Nov 2026
 
@@ -51,7 +51,8 @@ Work on the IoT monitoring platform (web, server and mobile app).
 | 20 Nov | Personalize | Group header strip; box border, separator line and strip colors; Personalize page with a live preview of the real pages beside the controls. | 2 |
 | 20 Nov | Sensor settings | Min/Max scale for the gauge and chart; calibration (multiply, divide, offset) applied to new readings. | 2 |
 | 20 Nov | Smaller changes | Notification templates View button, Messages and Report layout fixes, alert delivery switch on the dev server, production SSH access for a client PC. | 1 |
-| | **Total** | | **160** |
+| 20 Nov | Device MQTT commands | Commands to Tasmota devices from the right-click menu (and a button on phones and the device page): Check Now, Set TelePeriod, device and network information (Status 0 / 5), device name, Restart and Reset. The device's answer is shown, every command is recorded in History, and the Tasmota simulator answers commands for testing. | 5 |
+| | **Total** | | **165** |
 
 ## Adding entries
 

@@ -40,3 +40,4 @@ Date,Task,Details,Hours
 2026-11-20,Personalize,"Group header strip; box border, separator line and strip colors; Personalize page with a live preview of the real pages beside the controls.",2
 2026-11-20,Sensor settings,"Min/Max scale for the gauge and chart; calibration (multiply, divide, offset) applied to new readings.",2
 2026-11-20,Smaller changes,"Notification templates View button, Messages and Report layout fixes, alert delivery switch on the dev server, production SSH access for a client PC.",1
+2026-11-20,Device MQTT commands,"Commands to Tasmota devices from the right-click menu (and a button on phones and the device page): Check Now, Set TelePeriod, device and network information (Status 0 / 5), device name, Restart and Reset. The device's answer is shown, every command is recorded in History, and the Tasmota simulator answers commands for testing.",5
