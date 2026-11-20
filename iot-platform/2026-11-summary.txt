@@ -1,0 +1,110 @@
+IoT Platform — Work summary (29/10/2026 – 20/11/2026)
+
+29/10/2026   4 hours
+    Added an average-value tile and a larger sensor title on the sensor
+    page. Reports now count gaps in readings as downtime, with Downtime and
+    Average options on the report screen.
+
+30/10/2026   6 hours
+    Settings to customize the sensor card's size, text and colors with a
+    live preview; the Settings page now uses the full screen width.
+
+02/11/2026   10 hours
+    New location maps: upload a floor plan, place live sensor boxes on it
+    and draw rooms, walls, doors, windows, entries, exits and stairs, with
+    server storage and access rules per user role.
+
+03/11/2026   12 hours
+    Map editor with autosave, undo/redo, right-click menus and sensor box
+    shape, size and color options. Actions in History can now be undone from
+    the History page.
+
+04/11/2026   10 hours
+    User details card on hover and a right-click menu on the Users page;
+    admin test push notification to a chosen user; map sensor values in
+    their status color; started HTTP device support (readings over HTTP
+    instead of MQTT).
+
+05/11/2026   11 hours
+    View on Map popup from any sensor, snap to grid in the map editor and
+    Back to the previous page; admin test SMS; web-based HTTP sensor
+    simulator (PRTG push format) for testing without hardware.
+
+06/11/2026   12 hours
+    Finished HTTP devices: PRTG readings on port 5055, offline detection
+    when a device goes silent and a per-owner removal timeout. Alert
+    acknowledge, un-acknowledge, resolve and Clear now sync live between web
+    and phone app, and users can switch their own email/SMS/push alerts on
+    or off.
+
+07/11/2026   12 hours
+    New messaging system: chats between master admin, super admins and their
+    users, and announcements to chosen users, groups or locations, with live
+    delivery, phone push and unread counts. Written Android app instructions
+    for alert sync and location maps.
+
+08/11/2026   10 hours
+    Fixed the repeated 504 errors caused by the server running out of
+    memory: removed the memory cap and added a watchdog that restarts the
+    web server before it slows down. Simplified messaging: announcements
+    land in each person's chat so they can reply.
+
+09/11/2026   10 hours
+    WhatsApp-style messaging layout with a single new-chat button and
+    clearer wording. Custom notifications: the master admin pushes a written
+    message to chosen people, shown on top of their alerts until cleared,
+    and sees who cleared it.
+
+10/11/2026   11 hours
+    Pause a sensor for a set time (15 minutes to 7 days) or until a date and
+    time, resuming by itself. Phone numbers limited to 9 digits after +972,
+    new users get Email and Push by default, alert actions always visible.
+    Written Android app instructions for messaging, notifications and pause.
+
+11/11/2026   10 hours
+    Planned pause between two dates and a daily pause on every day or chosen
+    weekdays, started and ended by the server. HTTP sensors named in the
+    Device_key format. Fixed location pages showing 'page not found' and
+    made the automatic restart safer.
+
+12/11/2026   3 hours
+    A sensor with a planned pause shows in blue and one click cancels the
+    plan; saving sensor settings keeps a planned pause; the sensor preview
+    no longer opens over the right-click menu.
+
+14/11/2026   8 hours
+    Production server set up: deployment kit (push from dev, release
+    folders, rollback), production database copied from dev, readings
+    compression, faster loading of location users and an Nginx header fix.
+    Dev server moved to dserver.from-il.com.
+
+16/11/2026   1 hours
+    Sign out now returns to the login screen.
+
+17/11/2026   3 hours
+    Sensor status filters on the dashboards, and alert rows link to their
+    sensor.
+
+18/11/2026   13 hours
+    Web pages fit phone screens. UI redesign to match the design boards:
+    blue main color, light sidebar, phone bottom bar, dashboards, sensor and
+    device pages, Alerts, History, Report, list pages, Messages, Settings
+    and maps, plus a New/Standard sensor card design choice.
+
+19/11/2026   3 hours
+    UI redesign of all pop-up windows and confirmations to match the design
+    boards, on desktop and phone.
+
+20/11/2026   11 hours
+    Icons in the side and right-click menus, bigger status dots,
+    back/forward buttons on every page and delete buttons always last.
+    Groups list hover lists of users, locations, devices and sensors; Role
+    and Owner columns on Users. Alerts: tab totals, paging past 200, new
+    columns, type filters with counts, one Ack/Un-ack button and clearing
+    only resolved alerts with checkboxes. Personalize: group header strip,
+    line colors and a live preview of the real pages. Sensor Min/Max scale
+    and calibration (multiply, divide, offset). Templates View button,
+    Messages and Report layout fixes, dev alert delivery switch and
+    production SSH access for a client PC.
+
+Total: 160 hours
